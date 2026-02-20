@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Translation Telephone</title>
+<script src="https://cdn.jsdelivr.net/npm/diff@7/dist/diff.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f4f1ee;
+    --surface: #ffffff;
+    --primary: #4361ee;
+    --primary-hover: #3a56d4;
+    --text: #1e1e2f;
+    --text-muted: #6b7280;
+    --border: #e2e0dc;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --red: #dc2626;
+    --red-bg: #fee2e2;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* Input area */
+  .input-area {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+  }
+
+  .input-area label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .input-area textarea {
+    width: 100%;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+    transition: border-color 0.2s;
+  }
+
+  .input-area textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .slider-group label {
+    white-space: nowrap;
+    margin-bottom: 0;
+    font-size: 0.85rem;
+  }
+
+  .slider-group input[type="range"] {
+    flex: 1;
+    accent-color: var(--primary);
+  }
+
+  .slider-group .slider-val {
+    font-weight: 700;
+    font-size: 1.1rem;
+    min-width: 1.5ch;
+    text-align: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.65rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--primary-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-reset {
+    background: transparent;
+    color: var(--text-muted);
+    border: 2px solid var(--border);
+  }
+  .btn-reset:hover { background: var(--bg); color: var(--text); border-color: var(--text-muted); }
+
+  /* Chain */
+  .chain { display: flex; flex-direction: column; gap: 0; }
+
+  .step {
+    position: relative;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeUp 0.4s forwards;
+  }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .connector {
+    display: flex;
+    justify-content: center;
+    padding: 0.15rem 0;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    user-select: none;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+  }
+
+  .lang-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .lang-native {
+    font-weight: 400;
+    text-transform: none;
+    color: var(--text-muted);
+    letter-spacing: normal;
+    margin-left: 0.4rem;
+    font-size: 0.82rem;
+  }
+
+  .speak-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .speak-btn:hover { border-color: var(--primary); background: #eef1ff; }
+  .speak-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .step-text {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  /* Result card */
+  .result-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeUp 0.4s forwards;
+  }
+
+  .result-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .diff-display {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    word-break: break-word;
+  }
+
+  .diff-display .added {
+    background: var(--green-bg);
+    color: var(--green);
+    padding: 0.1em 0.2em;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .diff-display .removed {
+    background: var(--red-bg);
+    color: var(--red);
+    padding: 0.1em 0.2em;
+    border-radius: 3px;
+    text-decoration: line-through;
+    font-weight: 600;
+  }
+
+  .similarity {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 1.5rem;
+    margin-right: 0.5rem;
+  }
+
+  .similarity-label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .error-msg {
+    background: var(--red-bg);
+    color: var(--red);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 500px) {
+    h1 { font-size: 1.5rem; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .btn { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Translation Telephone</h1>
+  <p class="subtitle">Pass a phrase through random languages and see what survives.</p>
+
+  <div class="input-area">
+    <label for="phrase">Your phrase in English</label>
+    <textarea id="phrase" placeholder="e.g. The quick brown fox jumps over the lazy dog"></textarea>
+
+    <div class="controls">
+      <div class="slider-group">
+        <label for="steps">Languages:</label>
+        <input type="range" id="steps" min="2" max="25" value="4">
+        <span class="slider-val" id="stepsVal">4</span>
+      </div>
+      <button class="btn" id="goBtn">
+        <span id="goBtnText">Start</span>
+      </button>
+      <button class="btn btn-reset" id="resetBtn" style="display:none">Reset</button>
+    </div>
+  </div>
+
+  <div id="chain" class="chain"></div>
+  <div id="result"></div>
+  <div id="error"></div>
+</div>
+
+<script>
+const LANGUAGES = [
+  { code: "ar", name: "Arabic",      native: "العربية" },
+  { code: "bg", name: "Bulgarian",   native: "Български" },
+  { code: "bn", name: "Bengali",     native: "বাংলা" },
+  { code: "cs", name: "Czech",       native: "Čeština" },
+  { code: "da", name: "Danish",      native: "Dansk" },
+  { code: "de", name: "German",      native: "Deutsch" },
+  { code: "el", name: "Greek",       native: "Ελληνικά" },
+  { code: "es", name: "Spanish",     native: "Español" },
+  { code: "et", name: "Estonian",    native: "Eesti" },
+  { code: "fa", name: "Persian",     native: "فارسی" },
+  { code: "fi", name: "Finnish",     native: "Suomi" },
+  { code: "fr", name: "French",      native: "Français" },
+  { code: "ga", name: "Irish",       native: "Gaeilge" },
+  { code: "he", name: "Hebrew",      native: "עברית" },
+  { code: "hi", name: "Hindi",       native: "हिन्दी" },
+  { code: "hr", name: "Croatian",    native: "Hrvatski" },
+  { code: "hu", name: "Hungarian",   native: "Magyar" },
+  { code: "id", name: "Indonesian",  native: "Bahasa Indonesia" },
+  { code: "it", name: "Italian",     native: "Italiano" },
+  { code: "ja", name: "Japanese",    native: "日本語" },
+  { code: "ko", name: "Korean",      native: "한국어" },
+  { code: "lt", name: "Lithuanian",  native: "Lietuvių" },
+  { code: "lv", name: "Latvian",     native: "Latviešu" },
+  { code: "ms", name: "Malay",       native: "Bahasa Melayu" },
+  { code: "nl", name: "Dutch",       native: "Nederlands" },
+  { code: "no", name: "Norwegian",   native: "Norsk" },
+  { code: "pl", name: "Polish",      native: "Polski" },
+  { code: "pt", name: "Portuguese",  native: "Português" },
+  { code: "ro", name: "Romanian",    native: "Română" },
+  { code: "ru", name: "Russian",     native: "Русский" },
+  { code: "sk", name: "Slovak",      native: "Slovenčina" },
+  { code: "sl", name: "Slovenian",   native: "Slovenščina" },
+  { code: "sv", name: "Swedish",     native: "Svenska" },
+  { code: "sw", name: "Swahili",     native: "Kiswahili" },
+  { code: "ta", name: "Tamil",       native: "தமிழ்" },
+  { code: "th", name: "Thai",        native: "ไทย" },
+  { code: "tr", name: "Turkish",     native: "Türkçe" },
+  { code: "uk", name: "Ukrainian",   native: "Українська" },
+  { code: "vi", name: "Vietnamese",  native: "Tiếng Việt" },
+  { code: "zh", name: "Chinese",     native: "中文" },
+];
+
+const phraseEl   = document.getElementById("phrase");
+const stepsEl    = document.getElementById("steps");
+const stepsValEl = document.getElementById("stepsVal");
+const goBtn      = document.getElementById("goBtn");
+const goBtnText  = document.getElementById("goBtnText");
+const chainEl    = document.getElementById("chain");
+const resultEl   = document.getElementById("result");
+const errorEl    = document.getElementById("error");
+const resetBtn   = document.getElementById("resetBtn");
+
+let running = false;
+let abortCtrl = null;
+
+stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; });
+
+goBtn.addEventListener("click", () => {
+  if (running) { abortCtrl?.abort(); return; }
+  startChain();
+});
+
+resetBtn.addEventListener("click", () => {
+  if (running) { abortCtrl?.abort(); }
+  speechSynthesis.cancel();
+  chainEl.innerHTML = "";
+  resultEl.innerHTML = "";
+  errorEl.innerHTML = "";
+  resetBtn.style.display = "none";
+  phraseEl.value = "";
+  phraseEl.focus();
+  phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+function pickRandomLanguages(count) {
+  const pool = [...LANGUAGES];
+  const picked = [];
+  for (let i = 0; i < count && pool.length; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
+async function translate(text, from, to, signal) {
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+  const resp = await fetch(url, { signal });
+  if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+  const data = await resp.json();
+  if (data.responseStatus !== 200 && data.responseStatus !== "200") {
+    throw new Error(data.responseDetails || "Translation failed");
+  }
+  return data.responseData.translatedText;
+}
+
+let voicesReady = false;
+let cachedVoices = [];
+
+function loadVoices() {
+  cachedVoices = speechSynthesis.getVoices();
+  if (cachedVoices.length) voicesReady = true;
+}
+
+function waitForVoices() {
+  if (voicesReady) return Promise.resolve();
+  return new Promise(resolve => {
+    loadVoices();
+    if (voicesReady) return resolve();
+    const onchange = () => { loadVoices(); resolve(); };
+    speechSynthesis.addEventListener("voiceschanged", onchange, { once: true });
+    setTimeout(() => { loadVoices(); resolve(); }, 2000);
+  });
+}
+
+function hasVoiceForLang(langCode) {
+  return cachedVoices.some(v => v.lang === langCode || v.lang.startsWith(langCode + "-"));
+}
+
+function speak(text, langCode) {
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = langCode;
+  const match = cachedVoices.find(v => v.lang.startsWith(langCode));
+  if (match) utter.voice = match;
+  speechSynthesis.speak(utter);
+}
+
+function addStepCard(langName, langNative, langCode, text, index) {
+  if (chainEl.children.length > 0) {
+    const conn = document.createElement("div");
+    conn.className = "connector";
+    conn.textContent = "↓";
+    chainEl.appendChild(conn);
+  }
+
+  const card = document.createElement("div");
+  card.className = "step";
+  card.style.animationDelay = `${index * 0.05}s`;
+
+  const canSpeak = hasVoiceForLang(langCode);
+  card.innerHTML = `
+    <div class="step-header">
+      <span class="lang-label">${langName}<span class="lang-native">${langNative}</span></span>
+      <button class="speak-btn" title="Listen" ${canSpeak ? "" : "disabled"}>&#x1f50a;</button>
+    </div>
+    <div class="step-text">${escapeHtml(text)}</div>
+  `;
+
+  card.querySelector(".speak-btn").addEventListener("click", () => speak(text, langCode));
+  chainEl.appendChild(card);
+}
+
+function showResult(original, final) {
+  const diff = Diff.diffWords(original.toLowerCase(), final.toLowerCase());
+
+  let html = "";
+  let same = 0, total = 0;
+  for (const part of diff) {
+    const words = part.value.trim().split(/\s+/).filter(Boolean).length;
+    total += words;
+    if (!part.added && !part.removed) {
+      same += words;
+      html += escapeHtml(part.value);
+    } else if (part.removed) {
+      html += `<span class="removed">${escapeHtml(part.value)}</span>`;
+    } else {
+      html += `<span class="added">${escapeHtml(part.value)}</span>`;
+    }
+  }
+
+  const pct = total > 0 ? Math.round((same / total) * 100) : 0;
+
+  const conn = document.createElement("div");
+  conn.className = "connector";
+  conn.textContent = "↓";
+  chainEl.appendChild(conn);
+
+  resultEl.innerHTML = `
+    <div class="result-card">
+      <h2>Final vs. Original</h2>
+      <div class="diff-display">${html}</div>
+      <span class="similarity">${pct}%</span>
+      <span class="similarity-label">word similarity</span>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function setRunning(state) {
+  running = state;
+  phraseEl.disabled = state;
+  stepsEl.disabled = state;
+  goBtnText.textContent = state ? "Stop" : "Start";
+}
+
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); });
+  });
+}
+
+async function startChain() {
+  const original = phraseEl.value.trim();
+  if (!original) { phraseEl.focus(); return; }
+
+  chainEl.innerHTML = "";
+  resultEl.innerHTML = "";
+  errorEl.innerHTML = "";
+
+  abortCtrl = new AbortController();
+  setRunning(true);
+  resetBtn.style.display = "";
+
+  await waitForVoices();
+
+  const count = parseInt(stepsEl.value, 10);
+  const langs = pickRandomLanguages(count);
+
+  try {
+    addStepCard("English", "Start", "en", original, 0);
+
+    let current = original;
+    let fromCode = "en";
+
+    for (let i = 0; i < langs.length; i++) {
+      const lang = langs[i];
+      await delay(350, abortCtrl.signal);
+      current = await translate(current, fromCode, lang.code, abortCtrl.signal);
+      addStepCard(lang.name, lang.native, lang.code, current, i + 1);
+      fromCode = lang.code;
+    }
+
+    await delay(350, abortCtrl.signal);
+    const finalText = await translate(current, fromCode, "en", abortCtrl.signal);
+    addStepCard("English", "Final", "en", finalText, langs.length + 1);
+
+    showResult(original, finalText);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      /* user cancelled */
+    } else {
+      errorEl.innerHTML = `<div class="error-msg">Something went wrong: ${escapeHtml(err.message)}</div>`;
+    }
+  } finally {
+    setRunning(false);
+  }
+}
+
+loadVoices();
+speechSynthesis.addEventListener?.("voiceschanged", loadVoices);
+</script>
+</body>
+</html>
