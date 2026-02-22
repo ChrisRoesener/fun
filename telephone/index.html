@@ -514,7 +514,7 @@ function showResult(original, final) {
   chainEl.appendChild(conn);
 
   const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
-  const shareUrl = buildShareUrl(original);
+  const shareUrl = buildShareUrl(original, chainLog.length);
   const summaryText = `Translation Telephone\n\n${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
 
   resultEl.innerHTML = `
@@ -539,9 +539,10 @@ function showResult(original, final) {
   });
 }
 
-function buildShareUrl(phrase) {
+function buildShareUrl(phrase, steps) {
   const url = new URL(window.location.href.split("?")[0]);
   url.searchParams.set("phrase", phrase);
+  url.searchParams.set("steps", steps);
   return url.toString();
 }
 
@@ -631,9 +632,17 @@ async function startChain() {
 loadVoices();
 speechSynthesis.addEventListener?.("voiceschanged", loadVoices);
 
-const initPhrase = sanitizeInput(new URLSearchParams(window.location.search).get("phrase"));
+const params = new URLSearchParams(window.location.search);
+const initPhrase = sanitizeInput(params.get("phrase"));
 if (initPhrase) {
   phraseEl.value = initPhrase;
+}
+const initSteps = parseInt(params.get("steps"), 10);
+const minSteps = parseInt(stepsEl.min, 10);
+const maxSteps = parseInt(stepsEl.max, 10);
+if (initSteps >= minSteps && initSteps <= maxSteps) {
+  stepsEl.value = initSteps;
+  stepsValEl.textContent = initSteps;
 }
 </script>
 </body>
