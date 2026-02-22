@@ -338,7 +338,7 @@
 
 <div class="container">
   <h1>Translation Telephone</h1>
-  <p class="subtitle">Pass a phrase through random languages and see what survives.</p>
+  <p class="subtitle">Pass a phrase through random languages and see what happens.</p>
 
   <div class="input-area">
     <div class="phrase-label-row">
@@ -349,7 +349,7 @@
 
     <div class="controls">
       <div class="slider-group">
-        <label for="steps">Languages:</label>
+        <label for="steps">Steps:</label>
         <input type="range" id="steps" min="2" max="25" value="8">
         <span class="slider-val" id="stepsVal">8</span>
       </div>
@@ -410,6 +410,92 @@ const LANGUAGES = [
   { code: "zh", name: "Chinese",     native: "中文" },
 ];
 
+const MORSE_MAP = {
+  A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",
+  K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",
+  U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--..",
+  "1":".----","2":"..---","3":"...--","4":"....-","5":".....",
+  "6":"-....","7":"--...","8":"---..","9":"----.","0":"-----"
+};
+
+const NATO_MAP = {
+  A:"Alfa",B:"Bravo",C:"Charlie",D:"Delta",E:"Echo",F:"Foxtrot",G:"Golf",H:"Hotel",
+  I:"India",J:"Juliet",K:"Kilo",L:"Lima",M:"Mike",N:"November",O:"Oscar",P:"Papa",
+  Q:"Quebec",R:"Romeo",S:"Sierra",T:"Tango",U:"Uniform",V:"Victor",W:"Whiskey",
+  X:"X-ray",Y:"Yankee",Z:"Zulu"
+};
+
+const BRAILLE_MAP = "⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
+
+const FUN_ENCODINGS = [
+  {
+    name: "Pig Latin", native: "Igpay Atinlay", isFun: true,
+    encode(text) {
+      return text.replace(/[a-z]+/gi, word => {
+        const lower = word.toLowerCase();
+        const cap = word[0] === word[0].toUpperCase();
+        let result;
+        if (/^[aeiou]/.test(lower)) {
+          result = lower + "way";
+        } else {
+          const m = lower.match(/^([^aeiou]+)(.*)/);
+          result = m ? m[2] + m[1] + "ay" : lower + "ay";
+        }
+        return cap ? result[0].toUpperCase() + result.slice(1) : result;
+      });
+    }
+  },
+  {
+    name: "Morse Code", native: "-- --- ·-· ··· ·", isFun: true,
+    encode(text) {
+      return text.toUpperCase().split("").map(c =>
+        MORSE_MAP[c] || (c === " " ? "/" : c)
+      ).join(" ");
+    }
+  },
+  {
+    name: "NATO Phonetic", native: "Alfa Bravo Charlie", isFun: true,
+    encode(text) {
+      return text.toUpperCase().split("").map(c =>
+        NATO_MAP[c] || (c === " " ? " / " : c)
+      ).join(" ");
+    }
+  },
+  {
+    name: "Braille", native: "⠃⠗⠁⠊⠇⠇⠑", isFun: true,
+    encode(text) {
+      return [...text.toLowerCase()].map(c => {
+        const i = c.charCodeAt(0) - 97;
+        return (i >= 0 && i < 26) ? BRAILLE_MAP[i] : c;
+      }).join("");
+    }
+  },
+  {
+    name: "Leet Speak", native: "1337", isFun: true,
+    encode(text) {
+      const map = {a:"4",e:"3",i:"1",o:"0",s:"5",t:"7",l:"1",g:"9"};
+      return [...text].map(c => map[c.toLowerCase()] || c).join("");
+    }
+  },
+  {
+    name: "Backwards", native: "sdrawkcaB", isFun: true,
+    encode(text) {
+      return text.split(/(\s+)/).map(part =>
+        /^\s+$/.test(part) ? part : [...part].reverse().join("")
+      ).join("");
+    }
+  },
+  {
+    name: "ROT13", native: "EBG13", isFun: true,
+    encode(text) {
+      return text.replace(/[a-z]/gi, c => {
+        const base = c <= "Z" ? 65 : 97;
+        return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+      });
+    }
+  },
+];
+
 const phraseEl    = document.getElementById("phrase");
 const startLangEl = document.getElementById("startLang");
 const stepsEl     = document.getElementById("steps");
@@ -455,14 +541,27 @@ resetBtn.addEventListener("click", () => {
   phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-function pickRandomLanguages(count, excludeCode) {
-  const pool = LANGUAGES.filter(l => l.code !== excludeCode);
-  const picked = [];
-  for (let i = 0; i < count && pool.length; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    picked.push(pool.splice(idx, 1)[0]);
+function pickRandomSteps(count, excludeCode) {
+  const steps = [];
+
+  if (excludeCode === "en") {
+    const maxFun = Math.max(1, Math.floor(count / 4));
+    const funCount = Math.floor(Math.random() * (maxFun + 1));
+    const funPool = [...FUN_ENCODINGS];
+    for (let i = 0; i < funCount && funPool.length; i++) {
+      const idx = Math.floor(Math.random() * funPool.length);
+      steps.push(funPool.splice(idx, 1)[0]);
+    }
   }
-  return picked;
+
+  const langPool = LANGUAGES.filter(l => l.code !== excludeCode);
+  const remaining = count - steps.length;
+  for (let i = 0; i < remaining && langPool.length; i++) {
+    const idx = Math.floor(Math.random() * langPool.length);
+    steps.push(langPool.splice(idx, 1)[0]);
+  }
+
+  return steps;
 }
 
 async function translate(text, from, to, signal) {
@@ -560,7 +659,7 @@ function showResult(original, final) {
 
   const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
   const shareUrl = buildShareUrl(original, chainLog.length, startLangEl.value);
-  const summaryText = `Translation Telephone\n\n${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
+  const summaryText = `${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
 
   resultEl.innerHTML = `
     <div class="result-card">
@@ -647,7 +746,7 @@ async function startChain() {
   const startNative = startLang ? startLang.native : "English";
 
   const count = parseInt(stepsEl.value, 10);
-  const langs = pickRandomLanguages(count, startCode);
+  const steps = pickRandomSteps(count, startCode);
 
   try {
     chainLog = [];
@@ -656,18 +755,25 @@ async function startChain() {
     let current = original;
     let fromCode = startCode;
 
-    for (let i = 0; i < langs.length; i++) {
-      const lang = langs[i];
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
       await delay(350, abortCtrl.signal);
-      current = await translate(current, fromCode, lang.code, abortCtrl.signal);
-      addStepCard(lang.name, lang.native, lang.code, current, i + 1);
-      chainLog.push({ lang: lang.name, text: current });
-      fromCode = lang.code;
+
+      if (step.isFun) {
+        const encoded = step.encode(current);
+        addStepCard(step.name, step.native, "", encoded, i + 1);
+        chainLog.push({ lang: step.name, text: encoded });
+      } else {
+        current = await translate(current, fromCode, step.code, abortCtrl.signal);
+        addStepCard(step.name, step.native, step.code, current, i + 1);
+        chainLog.push({ lang: step.name, text: current });
+        fromCode = step.code;
+      }
     }
 
     await delay(350, abortCtrl.signal);
     const finalText = await translate(current, fromCode, startCode, abortCtrl.signal);
-    addStepCard(startName, startNative + " · Final", startCode, finalText, langs.length + 1);
+    addStepCard(startName, startNative + " · Final", startCode, finalText, steps.length + 1);
 
     showResult(original, finalText);
   } catch (err) {
