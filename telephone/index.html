@@ -592,6 +592,98 @@ const FUN_ENCODINGS = [
       return [...text].map(c => this._map[c] || c).reverse().join("");
     }
   },
+  {
+    name: "Scrabble", native: "Triple Word Score", isFun: true,
+    _pts: {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10},
+    _buildGrid(text) {
+      const words = text.toUpperCase().split(/\s+/)
+        .map(w => w.replace(/[^A-Z]/g, ""))
+        .filter(w => w.length >= 2)
+        .slice(0, 8);
+      if (!words.length) return null;
+
+      const grid = {};
+      const set = (x, y, ch) => { grid[`${x},${y}`] = ch; };
+      const get = (x, y) => grid[`${x},${y}`];
+
+      for (let i = 0; i < words[0].length; i++) set(i, 0, words[0][i]);
+      let nextDir = "v";
+
+      for (let w = 1; w < words.length; w++) {
+        const word = words[w];
+        let placed = false;
+
+        for (const tryDir of [nextDir, nextDir === "v" ? "h" : "v"]) {
+          if (placed) break;
+          for (let wi = 0; wi < word.length && !placed; wi++) {
+            for (const [key, letter] of Object.entries(grid)) {
+              if (letter !== word[wi]) continue;
+              const [gx, gy] = key.split(",").map(Number);
+
+              let ok = true;
+              const cells = [];
+              for (let i = 0; i < word.length; i++) {
+                const nx = tryDir === "h" ? gx - wi + i : gx;
+                const ny = tryDir === "v" ? gy - wi + i : gy;
+                const existing = get(nx, ny);
+                if (existing && existing !== word[i]) { ok = false; break; }
+                if (!existing) cells.push({ x: nx, y: ny, letter: word[i] });
+              }
+
+              if (ok && cells.length > 0) {
+                for (const c of cells) set(c.x, c.y, c.letter);
+                placed = true;
+                break;
+              }
+            }
+          }
+        }
+        if (placed) nextDir = nextDir === "v" ? "h" : "v";
+      }
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const key of Object.keys(grid)) {
+        const [x, y] = key.split(",").map(Number);
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      return { grid, get, minX, maxX, minY, maxY };
+    },
+    encode(text) {
+      const b = this._buildGrid(text);
+      if (!b) return text;
+      let out = "";
+      for (let y = b.minY; y <= b.maxY; y++) {
+        let row = "";
+        for (let x = b.minX; x <= b.maxX; x++) {
+          const ch = b.get(x, y);
+          row += ch ? ch + " " : "  ";
+        }
+        out += row.trimEnd() + "\n";
+      }
+      return out.trimEnd();
+    },
+    encodeHtml(text) {
+      const b = this._buildGrid(text);
+      if (!b) return escapeHtml(text);
+      const cols = b.maxX - b.minX + 1;
+      const sz = "clamp(1.4rem, 5vw, 2rem)";
+      let html = `<div style="display:inline-grid;grid-template-columns:repeat(${cols},${sz});gap:2px;padding:6px;background:#1a6b3c;border-radius:6px;font-family:serif;font-weight:700;">`;
+      for (let y = b.minY; y <= b.maxY; y++) {
+        for (let x = b.minX; x <= b.maxX; x++) {
+          const ch = b.get(x, y);
+          if (ch) {
+            const p = this._pts[ch] || 0;
+            html += `<div style="width:${sz};height:${sz};background:linear-gradient(135deg,#FAEBD7,#F5DEB3);border:1px solid #C4A35A;border-radius:3px;display:flex;align-items:center;justify-content:center;position:relative;font-size:calc(${sz} * 0.55);box-shadow:1px 1px 2px rgba(0,0,0,0.2);color:#1e1e2f;">${ch}<span style="position:absolute;bottom:1px;right:2px;font-size:calc(${sz} * 0.28);font-weight:400;">${p}</span></div>`;
+          } else {
+            html += `<div style="width:${sz};height:${sz};background:#166434;border-radius:2px;"></div>`;
+          }
+        }
+      }
+      html += "</div>";
+      return html;
+    }
+  },
 ];
 
 const phraseEl    = document.getElementById("phrase");
