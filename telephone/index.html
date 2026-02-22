@@ -494,6 +494,43 @@ const FUN_ENCODINGS = [
       });
     }
   },
+  {
+    name: "Ransom Note", native: "✂️📰", isFun: true,
+    _styles: [
+      [0x1D400, 0x1D41A],  // Bold Serif
+      [0x1D468, 0x1D482],  // Bold Italic
+      [0x1D4D0, 0x1D4EA],  // Script Bold
+      [0x1D56C, 0x1D586],  // Bold Fraktur
+      [0x1D5D4, 0x1D5EE],  // Sans Bold
+      [0x1D670, 0x1D68A],  // Monospace
+      [0xFF21,  0xFF41],    // Fullwidth
+      [0x24B6,  0x24D0],   // Circled
+    ],
+    _styledChar(c) {
+      const code = c.codePointAt(0);
+      const s = this._styles[Math.floor(Math.random() * this._styles.length)];
+      if (code >= 65 && code <= 90)  return String.fromCodePoint(s[0] + code - 65);
+      if (code >= 97 && code <= 122) return String.fromCodePoint(s[1] + code - 97);
+      return c;
+    },
+    encode(text) {
+      return [...text].map(c => this._styledChar(c)).join("");
+    },
+    encodeHtml(text) {
+      const sizes = [0.7, 0.85, 1, 1.2, 1.4, 1.65];
+      return text.split(/(\s+)/).map(part => {
+        if (/^\s+$/.test(part)) return " ";
+        const size = sizes[Math.floor(Math.random() * sizes.length)];
+        const rot = (Math.random() * 10 - 5).toFixed(1);
+        const letters = [...part].map(c => {
+          const code = c.codePointAt(0);
+          if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) return this._styledChar(c);
+          return c.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }).join("");
+        return `<span style="display:inline-block;font-size:${size}em;transform:rotate(${rot}deg);vertical-align:middle;margin:0 0.05em">${letters}</span>`;
+      }).join("");
+    }
+  },
 ];
 
 const phraseEl    = document.getElementById("phrase");
@@ -613,7 +650,7 @@ function speak(text, langCode) {
   speechSynthesis.speak(utter);
 }
 
-function addStepCard(langName, langNative, langCode, text, index) {
+function addStepCard(langName, langNative, langCode, text, index, htmlContent) {
   if (chainEl.children.length > 0) {
     const conn = document.createElement("div");
     conn.className = "connector";
@@ -631,7 +668,7 @@ function addStepCard(langName, langNative, langCode, text, index) {
       <span class="lang-label">${langName}<span class="lang-native">${langNative}</span></span>
       <button class="speak-btn" title="Listen" ${canSpeak ? "" : "disabled"}>&#x1f50a;</button>
     </div>
-    <div class="step-text">${escapeHtml(text)}</div>
+    <div class="step-text">${htmlContent || escapeHtml(text)}</div>
   `;
 
   card.querySelector(".speak-btn").addEventListener("click", () => speak(text, langCode));
@@ -769,7 +806,8 @@ async function startChain() {
 
       if (step.isFun) {
         const encoded = step.encode(current);
-        addStepCard(step.name, step.native, "", encoded, i + 1);
+        const html = step.encodeHtml ? step.encodeHtml(current) : null;
+        addStepCard(step.name, step.native, "", encoded, i + 1, html);
         chainLog.push({ lang: step.name, text: encoded });
       } else {
         try {
@@ -795,7 +833,8 @@ async function startChain() {
           await delay(350, abortCtrl.signal);
           stepIndex++;
           const encoded = fun.encode(current);
-          addStepCard(fun.name, fun.native, "", encoded, stepIndex);
+          const html = fun.encodeHtml ? fun.encodeHtml(current) : null;
+          addStepCard(fun.name, fun.native, "", encoded, stepIndex, html);
           chainLog.push({ lang: fun.name, text: encoded });
         }
       } else {
