@@ -564,11 +564,17 @@ function pickRandomSteps(count, excludeCode) {
   return steps;
 }
 
+class RateLimitError extends Error {
+  constructor() { super("Rate limited"); this.name = "RateLimitError"; }
+}
+
 async function translate(text, from, to, signal) {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
   const resp = await fetch(url, { signal });
+  if (resp.status === 429) throw new RateLimitError();
   if (!resp.ok) throw new Error(`API returned ${resp.status}`);
   const data = await resp.json();
+  if (data.responseStatus === 429 || data.responseStatus === "429") throw new RateLimitError();
   if (data.responseStatus !== 200 && data.responseStatus !== "200") {
     throw new Error(data.responseDetails || "Translation failed");
   }
@@ -754,6 +760,8 @@ async function startChain() {
 
     let current = original;
     let fromCode = startCode;
+    let rateLimited = false;
+    let stepIndex = 0;
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -764,16 +772,54 @@ async function startChain() {
         addStepCard(step.name, step.native, "", encoded, i + 1);
         chainLog.push({ lang: step.name, text: encoded });
       } else {
-        current = await translate(current, fromCode, step.code, abortCtrl.signal);
+        try {
+          current = await translate(current, fromCode, step.code, abortCtrl.signal);
+        } catch (e) {
+          if (e instanceof RateLimitError) { rateLimited = true; break; }
+          throw e;
+        }
         addStepCard(step.name, step.native, step.code, current, i + 1);
         chainLog.push({ lang: step.name, text: current });
         fromCode = step.code;
       }
+      stepIndex = i + 1;
+    }
+
+    if (rateLimited) {
+      const usedNames = new Set(chainLog.map(s => s.lang));
+      const unusedFun = FUN_ENCODINGS.filter(f => !usedNames.has(f.name));
+
+      if (startCode === "en" && unusedFun.length) {
+        errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Filling in with some fun encodings instead.</div>`;
+        for (const fun of unusedFun) {
+          await delay(350, abortCtrl.signal);
+          stepIndex++;
+          const encoded = fun.encode(current);
+          addStepCard(fun.name, fun.native, "", encoded, stepIndex);
+          chainLog.push({ lang: fun.name, text: encoded });
+        }
+      } else {
+        errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Skipping ahead to the final step with what we have so far.</div>`;
+      }
     }
 
     await delay(350, abortCtrl.signal);
-    const finalText = await translate(current, fromCode, startCode, abortCtrl.signal);
-    addStepCard(startName, startNative + " · Final", startCode, finalText, steps.length + 1);
+    let finalText;
+    try {
+      finalText = await translate(current, fromCode, startCode, abortCtrl.signal);
+    } catch (e) {
+      if (e instanceof RateLimitError) {
+        if (fromCode === startCode) {
+          finalText = current;
+        } else {
+          errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Try again in a minute or use fewer steps.</div>`;
+          return;
+        }
+      } else {
+        throw e;
+      }
+    }
+    addStepCard(startName, startNative + " · Final", startCode, finalText, stepIndex + 1);
 
     showResult(original, finalText);
   } catch (err) {
