@@ -327,6 +327,13 @@
     margin-top: 1rem;
   }
 
+  blink {
+    animation: oldblink 1s step-end infinite;
+  }
+  @keyframes oldblink {
+    50% { opacity: 0; }
+  }
+
   @media (max-width: 500px) {
     h1 { font-size: 1.5rem; }
     .controls { flex-direction: column; align-items: stretch; }
@@ -529,6 +536,43 @@ const FUN_ENCODINGS = [
         }).join("");
         return `<span style="display:inline-block;font-size:${size}em;transform:rotate(${rot}deg);vertical-align:middle;margin:0 0.05em">${letters}</span>`;
       }).join("");
+    }
+  },
+  {
+    name: "GeoCities", native: "🚧 Under Construction", isFun: true,
+    _colors: ["lime","red","blue","magenta","cyan","yellow","hotpink","purple","orange","maroon","navy","green","deeppink","aqua"],
+    _faces: ["Comic Sans MS","Papyrus","Times New Roman","Courier New","Impact","Arial Black"],
+    _sizes: ["2","3","4","5","6","7"],
+    _marquees: ["scroll","alternate","slide"],
+    encode(text) {
+      const c = this._colors[Math.floor(Math.random() * this._colors.length)];
+      const f = this._faces[Math.floor(Math.random() * this._faces.length)];
+      return `<marquee><font color="${c}" face="${f}"><b><blink>${text}</blink></b></font></marquee>`;
+    },
+    encodeHtml(text) {
+      const words = text.split(/(\s+)/);
+      let html = words.map(part => {
+        if (/^\s+$/.test(part)) return " ";
+        const safe = escapeHtml(part);
+        const color = this._colors[Math.floor(Math.random() * this._colors.length)];
+        const face = this._faces[Math.floor(Math.random() * this._faces.length)];
+        const size = this._sizes[Math.floor(Math.random() * this._sizes.length)];
+        let inner = safe;
+        if (Math.random() < 0.4) inner = `<b>${inner}</b>`;
+        if (Math.random() < 0.3) inner = `<i>${inner}</i>`;
+        if (Math.random() < 0.3) inner = `<u>${inner}</u>`;
+        if (Math.random() < 0.2) inner = `<s>${inner}</s>`;
+        if (Math.random() < 0.25) inner = `<blink>${inner}</blink>`;
+        if (Math.random() < 0.15) inner = `<sub>${inner}</sub>`;
+        else if (Math.random() < 0.15) inner = `<sup>${inner}</sup>`;
+        return `<font color="${color}" face="${face}" size="${size}">${inner}</font>`;
+      }).join("");
+      if (Math.random() < 0.4) {
+        const behavior = this._marquees[Math.floor(Math.random() * this._marquees.length)];
+        const dir = Math.random() < 0.5 ? "left" : "right";
+        html = `<marquee behavior="${behavior}" direction="${dir}" scrollamount="${2 + Math.floor(Math.random() * 4)}">${html}</marquee>`;
+      }
+      return html;
     }
   },
 ];
