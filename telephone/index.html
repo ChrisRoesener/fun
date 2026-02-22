@@ -267,6 +267,28 @@
     font-size: 0.9rem;
   }
 
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    color: var(--text-muted);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .copy-btn:hover { background: var(--bg); color: var(--text); border-color: var(--text-muted); }
+  .copy-btn.copied {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-bg);
+  }
+
   .error-msg {
     background: var(--red-bg);
     color: var(--red);
@@ -296,7 +318,7 @@
     <div class="controls">
       <div class="slider-group">
         <label for="steps">Languages:</label>
-        <input type="range" id="steps" min="2" max="25" value="4">
+        <input type="range" id="steps" min="2" max="25" value="8">
         <span class="slider-val" id="stepsVal">4</span>
       </div>
       <button class="btn" id="goBtn">
@@ -367,6 +389,7 @@ const resetBtn   = document.getElementById("resetBtn");
 
 let running = false;
 let abortCtrl = null;
+let chainLog = [];
 
 stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; });
 
@@ -490,14 +513,29 @@ function showResult(original, final) {
   conn.textContent = "↓";
   chainEl.appendChild(conn);
 
+  const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n");
+  const summaryText = `Translation Telephone\n"${original}"\n${steps}\nEnglish: ${final}\n${pct}% similarity`;
+
   resultEl.innerHTML = `
     <div class="result-card">
       <h2>Final vs. Original</h2>
       <div class="diff-display">${html}</div>
       <span class="similarity">${pct}%</span>
       <span class="similarity-label">word similarity</span>
+      <br>
+      <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
     </div>
   `;
+
+  document.getElementById("copyBtn").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      const btn = e.currentTarget;
+      btn.classList.add("copied");
+      btn.innerHTML = "&#x2705; Copied!";
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
+    } catch { /* clipboard not available */ }
+  });
 }
 
 function escapeHtml(str) {
@@ -536,6 +574,7 @@ async function startChain() {
   const langs = pickRandomLanguages(count);
 
   try {
+    chainLog = [];
     addStepCard("English", "Start", "en", original, 0);
 
     let current = original;
@@ -546,6 +585,7 @@ async function startChain() {
       await delay(350, abortCtrl.signal);
       current = await translate(current, fromCode, lang.code, abortCtrl.signal);
       addStepCard(lang.name, lang.native, lang.code, current, i + 1);
+      chainLog.push({ lang: lang.name, text: current });
       fromCode = lang.code;
     }
 
