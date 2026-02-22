@@ -575,6 +575,23 @@ const FUN_ENCODINGS = [
       return html;
     }
   },
+  {
+    name: "Spongebob", native: "sPoNgEbOb", isFun: true,
+    encode(text) {
+      let upper = false;
+      return [...text].map(c => {
+        if (/[a-z]/i.test(c)) { upper = !upper; return upper ? c.toUpperCase() : c.toLowerCase(); }
+        return c;
+      }).join("");
+    }
+  },
+  {
+    name: "Upside Down", native: "uʍop ǝpᴉsd∩", isFun: true,
+    _map: {a:"ɐ",b:"q",c:"ɔ",d:"p",e:"ǝ",f:"ɟ",g:"ƃ",h:"ɥ",i:"ᴉ",j:"ɾ",k:"ʞ",l:"l",m:"ɯ",n:"u",o:"o",p:"d",q:"b",r:"ɹ",s:"s",t:"ʇ",u:"n",v:"ʌ",w:"ʍ",x:"x",y:"ʎ",z:"z",A:"∀",B:"ꓭ",C:"Ɔ",D:"ꓷ",E:"Ǝ",F:"Ⅎ",G:"⅁",H:"H",I:"I",J:"ſ",K:"ꓘ",L:"˥",M:"W",N:"N",O:"O",P:"Ԁ",Q:"Ꝺ",R:"ꓤ",S:"S",T:"⊥",U:"∩",V:"Λ",W:"M",X:"X",Y:"⅄",Z:"Z","1":"Ɩ","2":"ᄅ","3":"Ɛ","4":"ㄣ","5":"ϛ","6":"9","7":"Ɫ","8":"8","9":"6","0":"0",".":"˙",",":"'","?":"¿","!":"¡","'":",",'(':')',')':'('},
+    encode(text) {
+      return [...text].map(c => this._map[c] || c).reverse().join("");
+    }
+  },
 ];
 
 const phraseEl    = document.getElementById("phrase");
