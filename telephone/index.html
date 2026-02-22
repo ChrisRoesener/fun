@@ -513,8 +513,8 @@ function showResult(original, final) {
   conn.textContent = "↓";
   chainEl.appendChild(conn);
 
-  const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n");
-  const summaryText = `Translation Telephone\n"${original}"\n${steps}\nEnglish: ${final}\n${pct}% similarity`;
+  const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
+  const summaryText = `Translation Telephone\n\n${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity`;
 
   resultEl.innerHTML = `
     <div class="result-card">
@@ -536,6 +536,16 @@ function showResult(original, final) {
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
     } catch { /* clipboard not available */ }
   });
+}
+
+function toBold(str) {
+  return [...str].map(c => {
+    const code = c.codePointAt(0);
+    if (code >= 65 && code <= 90)  return String.fromCodePoint(code - 65 + 0x1D5D4);  // bold sans A-Z
+    if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1D5EE);  // bold sans a-z
+    if (code >= 48 && code <= 57)  return String.fromCodePoint(code - 48 + 0x1D7EC);  // bold sans 0-9
+    return c;
+  }).join("");
 }
 
 function escapeHtml(str) {
