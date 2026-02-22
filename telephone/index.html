@@ -514,7 +514,8 @@ function showResult(original, final) {
   chainEl.appendChild(conn);
 
   const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
-  const summaryText = `Translation Telephone\n\n${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity`;
+  const shareUrl = buildShareUrl(original);
+  const summaryText = `Translation Telephone\n\n${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
 
   resultEl.innerHTML = `
     <div class="result-card">
@@ -536,6 +537,18 @@ function showResult(original, final) {
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
     } catch { /* clipboard not available */ }
   });
+}
+
+function buildShareUrl(phrase) {
+  const url = new URL(window.location.href.split("?")[0]);
+  url.searchParams.set("phrase", phrase);
+  return url.toString();
+}
+
+function sanitizeInput(raw) {
+  if (typeof raw !== "string") return "";
+  const stripped = raw.replace(/<[^>]*>/g, "").trim();
+  return stripped.slice(0, 500);
 }
 
 function toBold(str) {
@@ -617,6 +630,11 @@ async function startChain() {
 
 loadVoices();
 speechSynthesis.addEventListener?.("voiceschanged", loadVoices);
+
+const initPhrase = sanitizeInput(new URLSearchParams(window.location.search).get("phrase"));
+if (initPhrase) {
+  phraseEl.value = initPhrase;
+}
 </script>
 </body>
 </html>
