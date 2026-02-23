@@ -327,6 +327,63 @@
     margin-top: 1rem;
   }
 
+  .email-row {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .email-row label {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .email-input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .email-input-group input {
+    flex: 1;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+
+  .email-input-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .disclaimer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-bottom: 2rem;
+  }
+
+  .credit {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-top: 2rem;
+  }
+
+  .credit a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .credit a:hover {
+    text-decoration: underline;
+  }
+
   blink {
     animation: oldblink 1s step-end infinite;
   }
@@ -346,6 +403,7 @@
 <div class="container">
   <h1>Translation Telephone</h1>
   <p class="subtitle">Pass a phrase through random languages and see what happens.</p>
+  <p class="disclaimer">Disclaimer:I don't know what you typed, and I didn't do the translations. If you don't like the results, try again.</p>
 
   <div class="input-area">
     <div class="phrase-label-row">
@@ -365,11 +423,21 @@
       </button>
       <button class="btn btn-reset" id="resetBtn" style="display:none">Reset</button>
     </div>
+
+    <div id="emailRow" class="email-row" style="display:none">
+      <label for="emailInput">⚡ Rate limited — add your email for 10× more translations:</label>
+      <div class="email-input-group">
+        <input type="email" id="emailInput" placeholder="you@example.com">
+        <button class="btn" id="emailSaveBtn" style="padding:0.4rem 0.9rem;font-size:0.85rem;">Save</button>
+      </div>
+    </div>
   </div>
 
   <div id="chain" class="chain"></div>
   <div id="result"></div>
   <div id="error"></div>
+
+  <p class="credit">Translations powered by <a href="https://mymemory.translated.net/" target="_blank" rel="noopener">MyMemory</a></p>
 </div>
 
 <script>
@@ -708,6 +776,21 @@ const browserLang = (navigator.language || "en").split("-")[0].toLowerCase();
 const hasMatch = LANGUAGES.some(l => l.code === browserLang);
 startLangEl.value = hasMatch ? browserLang : "en";
 
+const emailRow     = document.getElementById("emailRow");
+const emailInput   = document.getElementById("emailInput");
+const emailSaveBtn = document.getElementById("emailSaveBtn");
+
+let apiEmail = localStorage.getItem("tt_email") || "";
+if (apiEmail) emailInput.value = apiEmail;
+
+emailSaveBtn.addEventListener("click", () => {
+  apiEmail = emailInput.value.trim();
+  if (apiEmail) {
+    localStorage.setItem("tt_email", apiEmail);
+    emailRow.style.display = "none";
+  }
+});
+
 let running = false;
 let abortCtrl = null;
 let chainLog = [];
@@ -759,16 +842,21 @@ class RateLimitError extends Error {
 }
 
 async function translate(text, from, to, signal) {
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+  let url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+  if (apiEmail) url += `&de=${encodeURIComponent(apiEmail)}`;
   const resp = await fetch(url, { signal });
-  if (resp.status === 429) throw new RateLimitError();
+  if (resp.status === 429) { showEmailPrompt(); throw new RateLimitError(); }
   if (!resp.ok) throw new Error(`API returned ${resp.status}`);
   const data = await resp.json();
-  if (data.responseStatus === 429 || data.responseStatus === "429") throw new RateLimitError();
+  if (data.responseStatus === 429 || data.responseStatus === "429") { showEmailPrompt(); throw new RateLimitError(); }
   if (data.responseStatus !== 200 && data.responseStatus !== "200") {
     throw new Error(data.responseDetails || "Translation failed");
   }
   return data.responseData.translatedText;
+}
+
+function showEmailPrompt() {
+  if (!apiEmail) emailRow.style.display = "";
 }
 
 let voicesReady = false;
