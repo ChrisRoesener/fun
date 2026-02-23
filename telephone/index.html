@@ -752,6 +752,37 @@ const FUN_ENCODINGS = [
       return html;
     }
   },
+  {
+    name: "Maligned Fonts", native: "Comic Papyrus", isFun: true,
+    _fonts: [
+      "Comic Sans MS, cursive",
+      "Papyrus, fantasy",
+      "Impact, sans-serif",
+      "Brush Script MT, cursive",
+      "Courier New, monospace",
+      "Arial Black, sans-serif",
+      "Trebuchet MS, sans-serif",
+      "Luminari, fantasy",
+      "Copperplate, fantasy",
+      "Jokerman, fantasy",
+    ],
+    encode(text) {
+      return text.split(/(\s+)/).map(part => {
+        if (/^\s+$/.test(part)) return " ";
+        const font = this._fonts[Math.floor(Math.random() * this._fonts.length)].split(",")[0];
+        return `${part} [${font}]`;
+      }).join("");
+    },
+    encodeHtml(text) {
+      const sizes = [0.85, 1, 1.15, 1.35, 1.55];
+      return text.split(/(\s+)/).map(part => {
+        if (/^\s+$/.test(part)) return " ";
+        const font = this._fonts[Math.floor(Math.random() * this._fonts.length)];
+        const size = sizes[Math.floor(Math.random() * sizes.length)];
+        return `<span style="font-family:${font};font-size:${size}em;vertical-align:middle;">${escapeHtml(part)}</span>`;
+      }).join(" ");
+    }
+  },
 ];
 
 const phraseEl    = document.getElementById("phrase");
@@ -818,8 +849,9 @@ function pickRandomSteps(count, excludeCode) {
   const steps = [];
 
   if (excludeCode === "en") {
-    const maxFun = Math.max(1, Math.floor(count / 4));
-    const funCount = Math.floor(Math.random() * (maxFun + 1));
+    const minFun = Math.min(2, count, FUN_ENCODINGS.length);
+    const maxFun = Math.max(minFun, Math.floor(count / 4));
+    const funCount = minFun + Math.floor(Math.random() * (maxFun - minFun + 1));
     const funPool = [...FUN_ENCODINGS];
     for (let i = 0; i < funCount && funPool.length; i++) {
       const idx = Math.floor(Math.random() * funPool.length);
