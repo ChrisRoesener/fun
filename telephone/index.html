@@ -1193,22 +1193,14 @@ if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
 
-const COUNTER_API = {
-  workspace: "ChrisRWorkspace",
-  name: "telephone-visitors",
-  apiKey: "ut_R1Pf6Ixtu042k1hfWWBNphg5wMV9wfuzOUjHMykz",
-};
-
 (async function loadVisitorCount() {
-  if (COUNTER_API.apiKey === "YOUR_API_KEY") return;
   try {
     const resp = await fetch(
-      `https://api.counterapi.dev/v2/${COUNTER_API.workspace}/${COUNTER_API.name}/up`,
-      { headers: { Authorization: `Bearer ${COUNTER_API.apiKey}` } }
+      "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-visitors/up"
     );
     if (!resp.ok) return;
     const data = await resp.json();
-    const count = String(data.count ?? data.value ?? 0).padStart(6, "0");
+    const count = String(data.count ?? 0).padStart(6, "0");
     const digits = [...count].map(d => `<span>${d}</span>`).join("");
     document.getElementById("visitorCounter").innerHTML =
       `You are visitor <span class="counter-digits">${digits}</span>`;
