@@ -368,6 +368,33 @@
     margin-bottom: 2rem;
   }
 
+  .visitor-counter {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .visitor-counter .counter-digits {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+
+  .visitor-counter .counter-digits span {
+    display: inline-block;
+    background: #111;
+    color: #0f0;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    min-width: 1.2rem;
+    text-align: center;
+  }
+
   .credit {
     text-align: center;
     color: var(--text-muted);
@@ -437,6 +464,7 @@
   <div id="result"></div>
   <div id="error"></div>
 
+  <div class="visitor-counter" id="visitorCounter"></div>
   <p class="credit">Translations powered by <a href="https://mymemory.translated.net/" target="_blank" rel="noopener">MyMemory</a><br>Built with <a href="https://www.cursor.com/" target="_blank" rel="noopener">Cursor</a></p>
 </div>
 
@@ -1164,6 +1192,28 @@ const initLang = params.get("lang");
 if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
+
+const COUNTER_API = {
+  workspace: "ChrisRWorkspace",
+  name: "telephone-visitors",
+  apiKey: "ut_R1Pf6Ixtu042k1hfWWBNphg5wMV9wfuzOUjHMykz",
+};
+
+(async function loadVisitorCount() {
+  if (COUNTER_API.apiKey === "YOUR_API_KEY") return;
+  try {
+    const resp = await fetch(
+      `https://api.counterapi.dev/v2/${COUNTER_API.workspace}/${COUNTER_API.name}/up`,
+      { headers: { Authorization: `Bearer ${COUNTER_API.apiKey}` } }
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const count = String(data.count ?? data.value ?? 0).padStart(6, "0");
+    const digits = [...count].map(d => `<span>${d}</span>`).join("");
+    document.getElementById("visitorCounter").innerHTML =
+      `You are visitor <span class="counter-digits">${digits}</span>`;
+  } catch { /* counter unavailable */ }
+})();
 </script>
 </body>
 </html>
