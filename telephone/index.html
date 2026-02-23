@@ -1110,6 +1110,7 @@ async function startChain() {
         const html = step.encodeHtml ? step.encodeHtml(current) : null;
         addStepCard(step.name, step.native, "", encoded, i + 1, html);
         chainLog.push({ lang: step.name, text: encoded });
+        incrementCounter();
       } else {
         try {
           current = await translate(current, fromCode, step.code, abortCtrl.signal);
@@ -1120,6 +1121,7 @@ async function startChain() {
         addStepCard(step.name, step.native, step.code, current, i + 1);
         chainLog.push({ lang: step.name, text: current });
         fromCode = step.code;
+        incrementCounter();
       }
       stepIndex = i + 1;
     }
@@ -1137,6 +1139,7 @@ async function startChain() {
           const html = fun.encodeHtml ? fun.encodeHtml(current) : null;
           addStepCard(fun.name, fun.native, "", encoded, stepIndex, html);
           chainLog.push({ lang: fun.name, text: encoded });
+          incrementCounter();
         }
       } else {
         errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Skipping ahead to the final step with what we have so far.</div>`;
@@ -1160,6 +1163,7 @@ async function startChain() {
       }
     }
     addStepCard(startName, startNative + " · Final", startCode, finalText, stepIndex + 1);
+    incrementCounter();
 
     showResult(original, finalText);
   } catch (err) {
@@ -1193,19 +1197,32 @@ if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
 
-(async function loadVisitorCount() {
+const COUNTER_URL = "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-translations";
+
+function renderCounter(count) {
+  const padded = String(count).padStart(6, "0");
+  const digits = [...padded].map(d => `<span>${d}</span>`).join("");
+  document.getElementById("visitorCounter").innerHTML =
+    `<span class="counter-digits">${digits}</span> translations and counting`;
+}
+
+(async function loadCounter() {
   try {
-    const resp = await fetch(
-      "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-visitors/up"
-    );
+    const resp = await fetch(COUNTER_URL);
     if (!resp.ok) return;
     const data = await resp.json();
-    const count = String(data.count ?? 0).padStart(6, "0");
-    const digits = [...count].map(d => `<span>${d}</span>`).join("");
-    document.getElementById("visitorCounter").innerHTML =
-      `You are visitor <span class="counter-digits">${digits}</span>`;
+    renderCounter(data.count ?? 0);
   } catch { /* counter unavailable */ }
 })();
+
+async function incrementCounter() {
+  try {
+    const resp = await fetch(`${COUNTER_URL}/up`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    renderCounter(data.count ?? 0);
+  } catch { /* counter unavailable */ }
+}
 </script>
 </body>
 </html>
