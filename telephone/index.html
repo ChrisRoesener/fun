@@ -318,6 +318,24 @@
     background: var(--green-bg);
   }
 
+  .result-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+
+  .carousel-wrap {
+    margin-top: 1rem;
+  }
+
+  .carousel-meta {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+    text-align: right;
+  }
+
   .error-msg {
     background: var(--red-bg);
     color: var(--red);
@@ -853,6 +871,87 @@ emailSaveBtn.addEventListener("click", () => {
 let running = false;
 let abortCtrl = null;
 let chainLog = [];
+let carouselTimer = null;
+let carouselIndex = 0;
+let carouselItems = [];
+let chainCollapsedRefs = null;
+
+function stopCarousel() {
+  if (carouselTimer) clearInterval(carouselTimer);
+  carouselTimer = null;
+  carouselIndex = 0;
+  carouselItems = [];
+}
+
+function collapseChainToCarousel(items) {
+  const stepEls = [...chainEl.querySelectorAll(".step")];
+  if (stepEls.length < 3 || !items.length) return false;
+  const first = stepEls[0];
+  const last = stepEls[stepEls.length - 1];
+  const hidden = [];
+
+  for (const child of [...chainEl.children]) {
+    if (child === first || child === last) continue;
+    hidden.push(child);
+    child.style.display = "none";
+  }
+
+  const connTop = document.createElement("div");
+  connTop.className = "connector";
+  connTop.textContent = "↓";
+  const wrap = document.createElement("div");
+  wrap.className = "carousel-wrap";
+  const connBottom = document.createElement("div");
+  connBottom.className = "connector";
+  connBottom.textContent = "↓";
+
+  chainEl.insertBefore(connTop, last);
+  chainEl.insertBefore(wrap, last);
+  chainEl.insertBefore(connBottom, last);
+
+  chainCollapsedRefs = { hidden, connTop, wrap, connBottom };
+  startCarousel(wrap, items);
+  return true;
+}
+
+function expandChainFromCarousel() {
+  stopCarousel();
+  if (!chainCollapsedRefs) return;
+  const { hidden, connTop, wrap, connBottom } = chainCollapsedRefs;
+  connTop.remove();
+  wrap.remove();
+  connBottom.remove();
+  for (const node of hidden) node.style.display = "";
+  chainCollapsedRefs = null;
+}
+
+function renderCarouselStep(container) {
+  if (!carouselItems.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const item = carouselItems[carouselIndex];
+  container.innerHTML = `
+    <div class="step" style="opacity:1;transform:none;animation:none;">
+      <div class="step-header">
+        <span class="lang-label">${escapeHtml(item.lang)}</span>
+      </div>
+      <div class="step-text">${escapeHtml(item.text)}</div>
+      <div class="carousel-meta">${carouselIndex + 1} / ${carouselItems.length}</div>
+    </div>
+  `;
+}
+
+function startCarousel(container, items) {
+  stopCarousel();
+  carouselItems = items;
+  renderCarouselStep(container);
+  if (carouselItems.length <= 1) return;
+  carouselTimer = setInterval(() => {
+    carouselIndex = (carouselIndex + 1) % carouselItems.length;
+    renderCarouselStep(container);
+  }, 2200);
+}
 
 stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; });
 
@@ -864,6 +963,8 @@ goBtn.addEventListener("click", () => {
 resetBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); }
   stopMorsePlayback();
+  expandChainFromCarousel();
+  chainEl.style.display = "";
   chainEl.innerHTML = "";
   resultEl.innerHTML = "";
   errorEl.innerHTML = "";
@@ -1071,6 +1172,7 @@ function showResult(original, final) {
   const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
   const shareUrl = buildShareUrl(original, chainLog.length, startLangEl.value);
   const summaryText = `${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
+  const hasIntermediates = chainLog.length > 0;
 
   resultEl.innerHTML = `
     <div class="result-card">
@@ -1078,8 +1180,11 @@ function showResult(original, final) {
       <div class="diff-display">${html}</div>
       <span class="similarity">${pct}%</span>
       <span class="similarity-label">word similarity</span>
-      <br>
-      <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
+      <div class="result-actions">
+        <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
+        ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
+      </div>
+      <div id="carouselWrap" class="carousel-wrap" style="display:none"></div>
     </div>
   `;
 
@@ -1092,6 +1197,28 @@ function showResult(original, final) {
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
     } catch { /* clipboard not available */ }
   });
+
+  const toggleBtn = document.getElementById("toggleCarouselBtn");
+  const carouselWrap = document.getElementById("carouselWrap");
+  if (toggleBtn && carouselWrap) {
+    let collapsed = false;
+    toggleBtn.addEventListener("click", () => {
+      collapsed = !collapsed;
+      if (collapsed) {
+        const ok = collapseChainToCarousel([...chainLog]);
+        if (!ok) {
+          collapsed = false;
+          return;
+        }
+        carouselWrap.style.display = "none";
+        toggleBtn.innerHTML = "&#x2195; Expand intermediate steps";
+      } else {
+        expandChainFromCarousel();
+        carouselWrap.style.display = "none";
+        toggleBtn.innerHTML = "&#x1f5d2; Collapse to carousel";
+      }
+    });
+  }
 }
 
 function buildShareUrl(phrase, steps, lang) {
@@ -1141,6 +1268,8 @@ async function startChain() {
   const original = phraseEl.value.trim();
   if (!original) { phraseEl.focus(); return; }
 
+  expandChainFromCarousel();
+  chainEl.style.display = "";
   chainEl.innerHTML = "";
   resultEl.innerHTML = "";
   errorEl.innerHTML = "";
