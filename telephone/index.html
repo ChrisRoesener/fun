@@ -857,13 +857,13 @@ let chainLog = [];
 stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; });
 
 goBtn.addEventListener("click", () => {
-  if (running) { abortCtrl?.abort(); return; }
+  if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
   startChain();
 });
 
 resetBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); }
-  speechSynthesis.cancel();
+  stopMorsePlayback();
   chainEl.innerHTML = "";
   resultEl.innerHTML = "";
   errorEl.innerHTML = "";
@@ -942,8 +942,72 @@ function hasVoiceForLang(langCode) {
   return cachedVoices.some(v => v.lang === langCode || v.lang.startsWith(langCode + "-"));
 }
 
-function speak(text, langCode) {
+let morseAudioCtx = null;
+let activeMorseOsc = [];
+
+function stopMorsePlayback() {
   speechSynthesis.cancel();
+  for (const osc of activeMorseOsc) {
+    try { osc.stop(); } catch { /* already ended */ }
+    try { osc.disconnect(); } catch { /* already disconnected */ }
+  }
+  activeMorseOsc = [];
+}
+
+async function playMorse(text) {
+  stopMorsePlayback();
+  if (!text) return;
+  if (!morseAudioCtx) {
+    morseAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (morseAudioCtx.state === "suspended") {
+    await morseAudioCtx.resume();
+  }
+
+  const unit = 90;
+  let offsetMs = 0;
+  const tokens = text.trim().split(/\s+/);
+
+  for (let t = 0; t < tokens.length; t++) {
+    const token = tokens[t];
+    if (token === "/") {
+      offsetMs += 7 * unit;
+      continue;
+    }
+
+    for (let i = 0; i < token.length; i++) {
+      const sym = token[i];
+      const durMs = sym === "." ? unit : sym === "-" ? 3 * unit : 0;
+      if (!durMs) continue;
+
+      const osc = morseAudioCtx.createOscillator();
+      const gain = morseAudioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 680;
+      gain.gain.setValueAtTime(0.0001, morseAudioCtx.currentTime + offsetMs / 1000);
+      gain.gain.exponentialRampToValueAtTime(0.18, morseAudioCtx.currentTime + (offsetMs + 10) / 1000);
+      gain.gain.exponentialRampToValueAtTime(0.0001, morseAudioCtx.currentTime + (offsetMs + durMs) / 1000);
+      osc.connect(gain);
+      gain.connect(morseAudioCtx.destination);
+      osc.onended = () => {
+        try { osc.disconnect(); } catch { /* ignore */ }
+        const idx = activeMorseOsc.indexOf(osc);
+        if (idx >= 0) activeMorseOsc.splice(idx, 1);
+      };
+      osc.start(morseAudioCtx.currentTime + offsetMs / 1000);
+      osc.stop(morseAudioCtx.currentTime + (offsetMs + durMs + 20) / 1000);
+      activeMorseOsc.push(osc);
+
+      offsetMs += durMs;
+      if (i < token.length - 1) offsetMs += unit;
+    }
+
+    if (t < tokens.length - 1) offsetMs += 3 * unit;
+  }
+}
+
+function speak(text, langCode) {
+  stopMorsePlayback();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = langCode;
   const match = cachedVoices.find(v => v.lang.startsWith(langCode));
@@ -951,7 +1015,7 @@ function speak(text, langCode) {
   speechSynthesis.speak(utter);
 }
 
-function addStepCard(langName, langNative, langCode, text, index, htmlContent) {
+function addStepCard(langName, langNative, langCode, text, index, htmlContent, speakHandler) {
   if (chainEl.children.length > 0) {
     const conn = document.createElement("div");
     conn.className = "connector";
@@ -963,7 +1027,7 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent) {
   card.className = "step";
   card.style.animationDelay = `${index * 0.05}s`;
 
-  const canSpeak = hasVoiceForLang(langCode);
+  const canSpeak = !!speakHandler || hasVoiceForLang(langCode);
   card.innerHTML = `
     <div class="step-header">
       <span class="lang-label">${langName}<span class="lang-native">${langNative}</span></span>
@@ -972,7 +1036,10 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent) {
     <div class="step-text">${htmlContent || escapeHtml(text)}</div>
   `;
 
-  card.querySelector(".speak-btn").addEventListener("click", () => speak(text, langCode));
+  card.querySelector(".speak-btn").addEventListener("click", () => {
+    if (speakHandler) return speakHandler();
+    speak(text, langCode);
+  });
   chainEl.appendChild(card);
 }
 
@@ -1108,7 +1175,8 @@ async function startChain() {
       if (step.isFun) {
         const encoded = step.encode(current);
         const html = step.encodeHtml ? step.encodeHtml(current) : null;
-        addStepCard(step.name, step.native, "", encoded, i + 1, html);
+        const speakHandler = step.name === "Morse Code" ? () => playMorse(encoded) : null;
+        addStepCard(step.name, step.native, "", encoded, i + 1, html, speakHandler);
         chainLog.push({ lang: step.name, text: encoded });
         incrementCounter();
       } else {
@@ -1137,7 +1205,8 @@ async function startChain() {
           stepIndex++;
           const encoded = fun.encode(current);
           const html = fun.encodeHtml ? fun.encodeHtml(current) : null;
-          addStepCard(fun.name, fun.native, "", encoded, stepIndex, html);
+          const speakHandler = fun.name === "Morse Code" ? () => playMorse(encoded) : null;
+          addStepCard(fun.name, fun.native, "", encoded, stepIndex, html, speakHandler);
           chainLog.push({ lang: fun.name, text: encoded });
           incrementCounter();
         }
