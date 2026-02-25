@@ -918,6 +918,7 @@ function expandChainFromCarousel() {
   stopCarousel();
   if (!chainCollapsedRefs) return;
   const { hidden, connTop, wrap, connBottom } = chainCollapsedRefs;
+  wrap.style.minHeight = "";
   connTop.remove();
   wrap.remove();
   connBottom.remove();
@@ -931,20 +932,46 @@ function renderCarouselStep(container) {
     return;
   }
   const item = carouselItems[carouselIndex];
-  container.innerHTML = `
+  container.innerHTML = getCarouselStepHtml(item, carouselIndex, carouselItems.length);
+}
+
+function getCarouselStepHtml(item, index, total) {
+  return `
     <div class="step" style="opacity:1;transform:none;animation:none;">
       <div class="step-header">
         <span class="lang-label">${escapeHtml(item.lang)}</span>
       </div>
       <div class="step-text">${escapeHtml(item.text)}</div>
-      <div class="carousel-meta">${carouselIndex + 1} / ${carouselItems.length}</div>
+      <div class="carousel-meta">${index + 1} / ${total}</div>
     </div>
   `;
+}
+
+function getMaxCarouselHeight(container, items) {
+  if (!items.length) return 0;
+  const probe = document.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  probe.style.left = "-99999px";
+  probe.style.top = "0";
+  probe.style.width = `${container.clientWidth || chainEl.clientWidth || 320}px`;
+  document.body.appendChild(probe);
+
+  let max = 0;
+  for (let i = 0; i < items.length; i++) {
+    probe.innerHTML = getCarouselStepHtml(items[i], i, items.length);
+    max = Math.max(max, probe.offsetHeight);
+  }
+  probe.remove();
+  return max;
 }
 
 function startCarousel(container, items) {
   stopCarousel();
   carouselItems = items;
+  const maxHeight = getMaxCarouselHeight(container, carouselItems);
+  container.style.minHeight = maxHeight ? `${maxHeight}px` : "";
   renderCarouselStep(container);
   if (carouselItems.length <= 1) return;
   carouselTimer = setInterval(() => {
