@@ -495,6 +495,7 @@
 </div>
 
 <script>
+// --- Constants & config ---
 const LANGUAGES = [
   { code: "en", name: "English",     native: "English" },
   { code: "ar", name: "Arabic",      native: "العربية" },
@@ -556,7 +557,30 @@ const NATO_MAP = {
 
 const BRAILLE_MAP = "⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
 const DATAMUSE_API = "https://api.datamuse.com/words";
+const HEAVY_IMAGE_ENCODINGS = new Set(["Scrabble", "GeoCities", "Maligned Fonts"]);
 
+// --- Text utilities ---
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+function stripHtmlTags(str) {
+  return String(str).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+function sanitizeInput(raw) {
+  if (typeof raw !== "string") return "";
+  const stripped = raw.replace(/<[^>]*>/g, "").trim();
+  return stripped.slice(0, 500);
+}
+
+// --- Encodings & step lookup ---
 const FUN_ENCODINGS = [
   {
     code: "xa", name: "Pig Latin", native: "Igpay Atinlay", isFun: true,
@@ -883,6 +907,7 @@ const STEP_BY_CODE = new Map(
   [...LANGUAGES, ...FUN_ENCODINGS].map(step => [step.code, step])
 );
 
+// --- DOM refs & init ---
 const phraseEl    = document.getElementById("phrase");
 const startLangEl = document.getElementById("startLang");
 const stepsEl     = document.getElementById("steps");
@@ -930,6 +955,7 @@ let carouselItems = [];
 let chainCollapsedRefs = null;
 let useForcedPath = false;
 
+// --- Carousel ---
 function stopCarousel() {
   if (carouselTimer) clearInterval(carouselTimer);
   carouselTimer = null;
@@ -937,6 +963,7 @@ function stopCarousel() {
   carouselItems = [];
 }
 
+// --- Combo / paths display ---
 function permutationCount(x, n) {
   if (n < 0) return 0n;
   if (n === 0) return 1n;
@@ -1111,6 +1138,7 @@ resetBtn.addEventListener("click", () => {
   phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
+// --- Chain / step logic ---
 function pickRandomSteps(count, excludeCode, encodingsOnlyMode) {
   const steps = [];
 
@@ -1174,6 +1202,7 @@ function resolveForcedSteps(count, startCode, encodingsOnlyMode) {
   return steps;
 }
 
+// --- Translation / API ---
 class RateLimitError extends Error {
   constructor() { super("Rate limited"); this.name = "RateLimitError"; }
 }
@@ -1199,6 +1228,16 @@ function showEmailPrompt() {
 async function encodeFunStep(step, text) {
   if (typeof step.encodeAsync === "function") return step.encodeAsync(text);
   return step.encode(text);
+}
+
+async function processFunStep(step, current, original) {
+  const isSchoolPaper = step.name === "School Paper";
+  const funInput = isSchoolPaper ? current : original;
+  const encoded = await encodeFunStep(step, funInput);
+  const newCurrent = isSchoolPaper ? encoded : current;
+  const html = step.encodeHtml ? step.encodeHtml(funInput) : null;
+  const speakHandler = step.name === "Morse Code" ? () => playMorse(encoded) : null;
+  return { encoded, newCurrent, html, speakHandler };
 }
 
 let voicesReady = false;
@@ -1325,6 +1364,7 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent, s
   chainEl.appendChild(card);
 }
 
+// --- Result UI & image export ---
 function showResult(original, final) {
   const diff = Diff.diffWords(original.toLowerCase(), final.toLowerCase());
 
@@ -1376,31 +1416,21 @@ function showResult(original, final) {
   document.getElementById("copyBtn").addEventListener("click", async (e) => {
     try {
       await navigator.clipboard.writeText(summaryText);
-      const btn = e.currentTarget;
-      btn.classList.add("copied");
-      btn.innerHTML = "&#x2705; Copied!";
-      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
+      flashButtonSuccess(e.currentTarget, "&#x2705; Copied!", "&#x1f4cb; Copy for texting");
     } catch { /* clipboard not available */ }
   });
 
   document.getElementById("shareLinkBtn").addEventListener("click", async (e) => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      const btn = e.currentTarget;
-      btn.classList.add("copied");
-      btn.innerHTML = "&#x2705; Link copied!";
-      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f517; Share link"; }, 2000);
+      flashButtonSuccess(e.currentTarget, "&#x2705; Link copied!", "&#x1f517; Share link");
     } catch { /* clipboard not available */ }
   });
 
-  document.getElementById("saveImageBtn").addEventListener("click", (e) => {
+  document.getElementById("saveImageBtn").addEventListener("click", async (e) => {
     try {
-      const svg = buildRunSvg(original, chainLog, final, pct, startLangEl.value, shareUrl);
-      downloadBlob(`telephone-${Date.now()}.svg`, svg, "image/svg+xml;charset=utf-8");
-      const btn = e.currentTarget;
-      btn.classList.add("copied");
-      btn.innerHTML = "&#x2705; Image saved!";
-      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f5bc; Save image (SVG)"; }, 2000);
+      await saveResultImage(original, chainLog, final, pct, startLangEl.value, shareUrl, "svg");
+      flashButtonSuccess(e.currentTarget, "&#x2705; Image saved!", "&#x1f5bc; Save image (SVG)");
     } catch {
       /* image generation failed */
     }
@@ -1408,12 +1438,8 @@ function showResult(original, final) {
 
   document.getElementById("savePngBtn").addEventListener("click", async (e) => {
     try {
-      const svg = buildRunSvg(original, chainLog, final, pct, startLangEl.value, shareUrl);
-      await downloadPngFromSvg(`telephone-${Date.now()}.png`, svg);
-      const btn = e.currentTarget;
-      btn.classList.add("copied");
-      btn.innerHTML = "&#x2705; PNG saved!";
-      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f5bc; Save image (PNG)"; }, 2000);
+      await saveResultImage(original, chainLog, final, pct, startLangEl.value, shareUrl, "png");
+      flashButtonSuccess(e.currentTarget, "&#x2705; PNG saved!", "&#x1f5bc; Save image (PNG)");
     } catch {
       /* png generation failed */
     }
@@ -1448,6 +1474,22 @@ function showResult(original, final) {
   }
 }
 
+function flashButtonSuccess(btn, successHtml, originalHtml) {
+  btn.classList.add("copied");
+  btn.innerHTML = successHtml;
+  setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = originalHtml; }, 2000);
+}
+
+async function saveResultImage(original, chainLog, final, pct, startCode, shareUrl, format) {
+  const svg = buildRunSvg(original, chainLog, final, pct, startCode, shareUrl);
+  const ts = Date.now();
+  if (format === "png") {
+    await downloadPngFromSvg(`telephone-${ts}.png`, svg);
+  } else {
+    downloadBlob(`telephone-${ts}.svg`, svg, "image/svg+xml;charset=utf-8");
+  }
+}
+
 function buildShareUrl(phrase, steps, lang, pathCodes) {
   const url = new URL(window.location.href.split("?")[0]);
   url.searchParams.set("phrase", phrase);
@@ -1456,19 +1498,6 @@ function buildShareUrl(phrase, steps, lang, pathCodes) {
   if (encodingsOnlyMode) url.searchParams.set("xenc", "1");
   if (pathCodes?.length) url.searchParams.set("path", pathCodes.join(""));
   return url.toString();
-}
-
-function escapeXml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-function stripHtmlTags(str) {
-  return String(str).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function wrapTextForSvg(text, maxCharsPerLine, maxLines = 6) {
@@ -1494,8 +1523,7 @@ function wrapTextForSvg(text, maxCharsPerLine, maxLines = 6) {
 }
 
 function textForImage(step) {
-  const heavy = new Set(["Scrabble", "GeoCities", "Maligned Fonts"]);
-  if (heavy.has(step.lang)) return `[${step.lang} visual output shown in app]`;
+  if (HEAVY_IMAGE_ENCODINGS.has(step.lang)) return `[${step.lang} visual output shown in app]`;
   return stripHtmlTags(step.text);
 }
 
@@ -1592,12 +1620,6 @@ async function downloadPngFromSvg(filename, svgText) {
   }
 }
 
-function sanitizeInput(raw) {
-  if (typeof raw !== "string") return "";
-  const stripped = raw.replace(/<[^>]*>/g, "").trim();
-  return stripped.slice(0, 500);
-}
-
 function toBold(str) {
   return [...str].map(c => {
     const code = c.codePointAt(0);
@@ -1608,10 +1630,7 @@ function toBold(str) {
   }).join("");
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
+// --- Run control ---
 function setRunning(state) {
   running = state;
   phraseEl.disabled = state;
@@ -1666,12 +1685,8 @@ async function startChain() {
       await delay(350, abortCtrl.signal);
 
       if (step.isFun) {
-        const isSchoolPaper = step.name === "School Paper";
-        const funInput = isSchoolPaper ? current : original;
-        const encoded = await encodeFunStep(step, funInput);
-        if (isSchoolPaper) current = encoded;
-        const html = step.encodeHtml ? step.encodeHtml(funInput) : null;
-        const speakHandler = step.name === "Morse Code" ? () => playMorse(encoded) : null;
+        const { encoded, newCurrent, html, speakHandler } = await processFunStep(step, current, original);
+        current = newCurrent;
         addStepCard(step.name, step.native, "", encoded, i + 1, html, speakHandler);
         chainLog.push({ code: step.code, lang: step.name, text: encoded });
         incrementCounter();
@@ -1699,12 +1714,8 @@ async function startChain() {
         for (const fun of unusedFun) {
           await delay(350, abortCtrl.signal);
           stepIndex++;
-          const isSchoolPaper = fun.name === "School Paper";
-          const funInput = isSchoolPaper ? current : original;
-          const encoded = await encodeFunStep(fun, funInput);
-          if (isSchoolPaper) current = encoded;
-          const html = fun.encodeHtml ? fun.encodeHtml(funInput) : null;
-          const speakHandler = fun.name === "Morse Code" ? () => playMorse(encoded) : null;
+          const { encoded, newCurrent, html, speakHandler } = await processFunStep(fun, current, original);
+          current = newCurrent;
           addStepCard(fun.name, fun.native, "", encoded, stepIndex, html, speakHandler);
           chainLog.push({ code: fun.code, lang: fun.name, text: encoded });
           incrementCounter();
@@ -1749,6 +1760,7 @@ async function startChain() {
   }
 }
 
+// --- URL params & bootstrap ---
 loadVoices();
 speechSynthesis.addEventListener?.("voiceschanged", loadVoices);
 
