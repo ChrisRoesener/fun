@@ -1550,8 +1550,8 @@ function showResult(original, final) {
         <button class="copy-btn" id="shareLinkBtn">&#x1f517; Share link</button>
         <button class="copy-btn" id="saveImageBtn">&#x1f5bc; Save image (SVG)</button>
         <button class="copy-btn" id="savePngBtn">&#x1f5bc; Save image (PNG)</button>
-        <button class="copy-btn" id="runAgainBtn">&#x21bb; Run again</button>
         ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
+        <button class="copy-btn" id="runAgainBtn">&#x21bb; Run again</button>
       </div>
       <div id="carouselWrap" class="carousel-wrap" style="display:none"></div>
     </div>
@@ -1682,6 +1682,26 @@ function buildRunSvg(original, steps, finalText, pct, startCode, shareUrl) {
   const footerH = 56;
   const contentW = width - outerPad * 2;
   const charsPerLine = 64;
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const colors = isDark
+    ? {
+        bg: "#10131a",
+        card: "#1a1f2a",
+        border: "#2b3344",
+        title: "#e6e9ef",
+        muted: "#9ca6b8",
+        label: "#6f8bff",
+        text: "#e6e9ef"
+      }
+    : {
+        bg: "#f4f1ee",
+        card: "#ffffff",
+        border: "#e2e0dc",
+        title: "#1e1e2f",
+        muted: "#6b7280",
+        label: "#4361ee",
+        text: "#1e1e2f"
+      };
 
   const startLang = LANGUAGES.find(l => l.code === startCode)?.name || startCode.toUpperCase();
   const rows = [
@@ -1701,22 +1721,29 @@ function buildRunSvg(original, steps, finalText, pct, startCode, shareUrl) {
 
   const parts = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
-  parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="#f4f1ee"/>`);
-  parts.push(`<text x="${width / 2}" y="${outerPad + 20}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#1e1e2f">Translation Telephone</text>`);
-  parts.push(`<text x="${width / 2}" y="${outerPad + 52}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" fill="#6b7280">${pct}% similarity</text>`);
+  parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${colors.bg}"/>`);
+  parts.push(`<text x="${width / 2}" y="${outerPad + 20}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="${colors.title}">Translation Telephone</text>`);
+  parts.push(`<text x="${width / 2}" y="${outerPad + 52}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" fill="${colors.muted}">${pct}% similarity</text>`);
 
   for (const r of rowLayouts) {
     const cx = outerPad + contentW / 2;
-    parts.push(`<rect x="${outerPad}" y="${r.top}" width="${contentW}" height="${r.h}" rx="14" fill="#ffffff" stroke="#e2e0dc"/>`);
-    parts.push(`<text x="${cx}" y="${r.top + cardPad + 18}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#4361ee">${escapeXml(r.label)}</text>`);
+    parts.push(`<rect x="${outerPad}" y="${r.top}" width="${contentW}" height="${r.h}" rx="14" fill="${colors.card}" stroke="${colors.border}"/>`);
+    parts.push(`<text x="${cx}" y="${r.top + cardPad + 18}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="${colors.label}">${escapeXml(r.label)}</text>`);
     r.lines.forEach((ln, i) => {
       const ty = r.top + cardPad + labelH + 20 + i * lineH;
-      parts.push(`<text x="${cx}" y="${ty}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#1e1e2f">${escapeXml(ln)}</text>`);
+      parts.push(`<text x="${cx}" y="${ty}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="${colors.text}">${escapeXml(ln)}</text>`);
     });
   }
 
-  const shortShare = stripHtmlTags(shareUrl);
-  parts.push(`<text x="${width / 2}" y="${height - 22}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#6b7280">${escapeXml(shortShare)}</text>`);
+  const baseShare = (() => {
+    try {
+      const u = new URL(shareUrl);
+      return `${u.origin}${u.pathname}`;
+    } catch {
+      return String(shareUrl).split("?")[0];
+    }
+  })();
+  parts.push(`<text x="${width / 2}" y="${height - 22}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="${colors.muted}">${escapeXml(baseShare)}</text>`);
   parts.push(`</svg>`);
   return parts.join("");
 }
