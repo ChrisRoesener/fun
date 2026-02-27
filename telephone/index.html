@@ -11,6 +11,7 @@
   :root {
     --bg: #f4f1ee;
     --surface: #ffffff;
+    --field-bg: #f8fafc;
     --primary: #4361ee;
     --primary-hover: #3a56d4;
     --text: #1e1e2f;
@@ -24,12 +25,29 @@
     --shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
 
+  :root[data-theme="dark"] {
+    --bg: #10131a;
+    --surface: #1a1f2a;
+    --field-bg: #222938;
+    --primary: #6f8bff;
+    --primary-hover: #5c79e8;
+    --text: #e6e9ef;
+    --text-muted: #9ca6b8;
+    --border: #2b3344;
+    --green: #22c55e;
+    --green-bg: #0f2a1b;
+    --red: #f87171;
+    --red-bg: #331517;
+    --shadow: 0 6px 20px rgba(0,0,0,0.35);
+  }
+
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
     padding: 2rem 1rem 4rem;
+    transition: background-color 0.2s, color 0.2s;
   }
 
   h1 {
@@ -85,7 +103,7 @@
     padding: 0.2rem 0.4rem;
     border: 2px solid var(--border);
     border-radius: 6px;
-    background: var(--surface);
+    background: var(--field-bg);
     color: var(--primary);
     cursor: pointer;
     transition: border-color 0.2s;
@@ -105,7 +123,13 @@
     font-family: inherit;
     resize: vertical;
     min-height: 70px;
+    background: var(--field-bg);
+    color: var(--text);
     transition: border-color 0.2s;
+  }
+
+  .input-area textarea::placeholder {
+    color: var(--text-muted);
   }
 
   .input-area textarea:focus {
@@ -418,6 +442,8 @@
     padding: 0.4rem 0.75rem;
     font-size: 0.9rem;
     font-family: inherit;
+    background: var(--field-bg);
+    color: var(--text);
     transition: border-color 0.2s;
   }
 
@@ -531,6 +557,7 @@
         </div>
       </div>
       <button class="btn btn-reset" id="resetBtn" style="display:none">Reset</button>
+      <button class="btn btn-reset" id="themeToggle" title="Toggle dark mode">&#x1f319; Dark mode</button>
     </div>
 
     <div id="emailRow" class="email-row" style="display:none">
@@ -976,11 +1003,50 @@ const goBtnMenuToggle = document.getElementById("goBtnMenuToggle");
 const goTurboBtn = document.getElementById("goTurboBtn");
 const goBtnMenu = document.getElementById("goBtnMenu");
 const startSplit = document.getElementById("startSplit");
+const themeToggleBtn = document.getElementById("themeToggle");
 const chainEl     = document.getElementById("chain");
 const resultEl    = document.getElementById("result");
 const errorEl     = document.getElementById("error");
 const resetBtn    = document.getElementById("resetBtn");
 const comboCountEl = document.getElementById("comboCount");
+
+const THEME_KEY = "tt_theme";
+const systemThemeMql = window.matchMedia("(prefers-color-scheme: dark)");
+
+function getEffectiveTheme(pref) {
+  if (pref === "dark" || pref === "light") return pref;
+  return systemThemeMql.matches ? "dark" : "light";
+}
+
+function updateThemeToggle(theme) {
+  themeToggleBtn.innerHTML = theme === "dark" ? "&#x2600;&#xfe0f; Light mode" : "&#x1f319; Dark mode";
+}
+
+function applyTheme(pref) {
+  const theme = getEffectiveTheme(pref);
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeToggle(theme);
+}
+
+let themePref = localStorage.getItem(THEME_KEY) || "system";
+applyTheme(themePref);
+
+themeToggleBtn.addEventListener("click", () => {
+  const currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  themePref = currentTheme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, themePref);
+  applyTheme(themePref);
+});
+
+if (systemThemeMql.addEventListener) {
+  systemThemeMql.addEventListener("change", () => {
+    if (themePref === "system") applyTheme(themePref);
+  });
+} else if (systemThemeMql.addListener) {
+  systemThemeMql.addListener(() => {
+    if (themePref === "system") applyTheme(themePref);
+  });
+}
 
 LANGUAGES.forEach(lang => {
   const opt = document.createElement("option");
