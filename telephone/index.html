@@ -559,7 +559,7 @@ const DATAMUSE_API = "https://api.datamuse.com/words";
 
 const FUN_ENCODINGS = [
   {
-    name: "Pig Latin", native: "Igpay Atinlay", isFun: true,
+    code: "xa", name: "Pig Latin", native: "Igpay Atinlay", isFun: true,
     encode(text) {
       return text.replace(/[a-z]+/gi, word => {
         const lower = word.toLowerCase();
@@ -576,7 +576,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Morse Code", native: "-- --- ·-· ··· ·", isFun: true,
+    code: "xb", name: "Morse Code", native: "-- --- ·-· ··· ·", isFun: true,
     encode(text) {
       return text.toUpperCase().split("").map(c =>
         MORSE_MAP[c] || (c === " " ? "/" : c)
@@ -584,7 +584,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "NATO Phonetic", native: "Alfa Bravo Charlie", isFun: true,
+    code: "xc", name: "NATO Phonetic", native: "Alfa Bravo Charlie", isFun: true,
     encode(text) {
       return text.toUpperCase().split("").map(c =>
         NATO_MAP[c] || (c === " " ? " / " : c)
@@ -592,7 +592,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Braille", native: "⠃⠗⠁⠊⠇⠇⠑", isFun: true,
+    code: "xd", name: "Braille", native: "⠃⠗⠁⠊⠇⠇⠑", isFun: true,
     encode(text) {
       return [...text.toLowerCase()].map(c => {
         const i = c.charCodeAt(0) - 97;
@@ -601,14 +601,14 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Leet Speak", native: "1337", isFun: true,
+    code: "xe", name: "Leet Speak", native: "1337", isFun: true,
     encode(text) {
       const map = {a:"4",e:"3",i:"1",o:"0",s:"5",t:"7",l:"1",g:"9"};
       return [...text].map(c => map[c.toLowerCase()] || c).join("");
     }
   },
   {
-    name: "Backwards", native: "sdrawkcaB", isFun: true,
+    code: "xf", name: "Backwards", native: "sdrawkcaB", isFun: true,
     encode(text) {
       return text.split(/(\s+)/).map(part =>
         /^\s+$/.test(part) ? part : [...part].reverse().join("")
@@ -616,7 +616,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "ROT13", native: "EBG13", isFun: true,
+    code: "xg", name: "ROT13", native: "EBG13", isFun: true,
     encode(text) {
       return text.replace(/[a-z]/gi, c => {
         const base = c <= "Z" ? 65 : 97;
@@ -625,20 +625,15 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "School Paper", native: "Thesaurus Mode", isFun: true,
+    code: "xh", name: "School Paper", native: "Thesaurus Mode", isFun: true,
     encode(text) {
       return text;
     },
     async encodeAsync(text) {
-      const words = [...text.matchAll(/\b[A-Za-z]{4,}\b/g)];
+      const words = [...text.matchAll(/\b[A-Za-z]{3,}\b/g)];
       if (!words.length) return text;
 
-      const targetCount = Math.max(1, Math.floor(words.length * 0.5));
-      const selected = [...words]
-        .sort((a, b) => (b[0].length - a[0].length) || (Math.random() - 0.5))
-        .slice(0, targetCount);
-
-      const replacements = await Promise.all(selected.map(async (m) => {
+      const replacements = await Promise.all(words.map(async (m) => {
         const original = m[0];
         const lower = original.toLowerCase();
         try {
@@ -669,7 +664,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Ransom Note", native: "✂️📰", isFun: true,
+    code: "xi", name: "Ransom Note", native: "✂️📰", isFun: true,
     _styles: [
       [0x1D400, 0x1D41A],  // Bold Serif
       [0x1D468, 0x1D482],  // Bold Italic
@@ -706,7 +701,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "GeoCities", native: "🚧 Under Construction", isFun: true,
+    code: "xj", name: "GeoCities", native: "🚧 Under Construction", isFun: true,
     _colors: ["lime","red","blue","magenta","cyan","yellow","hotpink","purple","orange","maroon","navy","green","deeppink","aqua"],
     _faces: ["Comic Sans MS","Papyrus","Times New Roman","Courier New","Impact","Arial Black"],
     _sizes: ["2","3","4","5","6","7"],
@@ -743,7 +738,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Spongebob", native: "sPoNgEbOb", isFun: true,
+    code: "xk", name: "Spongebob", native: "sPoNgEbOb", isFun: true,
     encode(text) {
       let upper = false;
       return [...text].map(c => {
@@ -753,14 +748,14 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Upside Down", native: "uʍop ǝpᴉsd∩", isFun: true,
+    code: "xl", name: "Upside Down", native: "uʍop ǝpᴉsd∩", isFun: true,
     _map: {a:"ɐ",b:"q",c:"ɔ",d:"p",e:"ǝ",f:"ɟ",g:"ƃ",h:"ɥ",i:"ᴉ",j:"ɾ",k:"ʞ",l:"l",m:"ɯ",n:"u",o:"o",p:"d",q:"b",r:"ɹ",s:"s",t:"ʇ",u:"n",v:"ʌ",w:"ʍ",x:"x",y:"ʎ",z:"z",A:"∀",B:"ꓭ",C:"Ɔ",D:"ꓷ",E:"Ǝ",F:"Ⅎ",G:"⅁",H:"H",I:"I",J:"ſ",K:"ꓘ",L:"˥",M:"W",N:"N",O:"O",P:"Ԁ",Q:"Ꝺ",R:"ꓤ",S:"S",T:"⊥",U:"∩",V:"Λ",W:"M",X:"X",Y:"⅄",Z:"Z","1":"Ɩ","2":"ᄅ","3":"Ɛ","4":"ㄣ","5":"ϛ","6":"9","7":"Ɫ","8":"8","9":"6","0":"0",".":"˙",",":"'","?":"¿","!":"¡","'":",",'(':')',')':'('},
     encode(text) {
       return [...text].map(c => this._map[c] || c).reverse().join("");
     }
   },
   {
-    name: "Scrabble", native: "Triple Word Score", isFun: true,
+    code: "xm", name: "Scrabble", native: "Triple Word Score", isFun: true,
     _pts: {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10},
     _buildGrid(text) {
       const words = text.toUpperCase().split(/\s+/)
@@ -852,7 +847,7 @@ const FUN_ENCODINGS = [
     }
   },
   {
-    name: "Maligned Fonts", native: "Comic Papyrus", isFun: true,
+    code: "xn", name: "Maligned Fonts", native: "Comic Papyrus", isFun: true,
     _fonts: [
       "Comic Sans MS, cursive",
       "Papyrus, fantasy",
@@ -883,6 +878,10 @@ const FUN_ENCODINGS = [
     }
   },
 ];
+
+const STEP_BY_CODE = new Map(
+  [...LANGUAGES, ...FUN_ENCODINGS].map(step => [step.code, step])
+);
 
 const phraseEl    = document.getElementById("phrase");
 const startLangEl = document.getElementById("startLang");
@@ -1140,6 +1139,27 @@ function pickRandomSteps(count, excludeCode, encodingsOnlyMode) {
   return steps;
 }
 
+function resolveForcedSteps(count, startCode, encodingsOnlyMode) {
+  if (!forcedPathCodes.length) return null;
+
+  const codes = forcedPathCodes.slice(0, count);
+  if (!codes.length) return null;
+  const steps = [];
+
+  for (const code of codes) {
+    const step = STEP_BY_CODE.get(code);
+    if (!step) return null;
+    if (encodingsOnlyMode && !step.isFun) return null;
+    if (!encodingsOnlyMode) {
+      if (step.isFun && startCode !== "en") return null;
+      if (!step.isFun && step.code === startCode) return null;
+    }
+    steps.push(step);
+  }
+
+  return steps;
+}
+
 class RateLimitError extends Error {
   constructor() { super("Rate limited"); this.name = "RateLimitError"; }
 }
@@ -1317,7 +1337,7 @@ function showResult(original, final) {
   chainEl.appendChild(conn);
 
   const steps = chainLog.map(s => `${s.lang}: ${s.text}`).join("\n\n");
-  const shareUrl = buildShareUrl(original, chainLog.length, startLangEl.value);
+  const shareUrl = buildShareUrl(original, chainLog.length, startLangEl.value, chainLog.map(s => s.code));
   const summaryText = `${toBold(original)}\n\n${steps}\n\n${toBold(final)}\n\n${pct}% similarity\n\nTry it: ${shareUrl}`;
   const hasIntermediates = chainLog.length > 0;
 
@@ -1329,6 +1349,7 @@ function showResult(original, final) {
       <span class="similarity-label">word similarity</span>
       <div class="result-actions">
         <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
+        <button class="copy-btn" id="shareLinkBtn">&#x1f517; Share link</button>
         ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
       </div>
       <div id="carouselWrap" class="carousel-wrap" style="display:none"></div>
@@ -1342,6 +1363,16 @@ function showResult(original, final) {
       btn.classList.add("copied");
       btn.innerHTML = "&#x2705; Copied!";
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f4cb; Copy for texting"; }, 2000);
+    } catch { /* clipboard not available */ }
+  });
+
+  document.getElementById("shareLinkBtn").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      const btn = e.currentTarget;
+      btn.classList.add("copied");
+      btn.innerHTML = "&#x2705; Link copied!";
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f517; Share link"; }, 2000);
     } catch { /* clipboard not available */ }
   });
 
@@ -1368,11 +1399,13 @@ function showResult(original, final) {
   }
 }
 
-function buildShareUrl(phrase, steps, lang) {
+function buildShareUrl(phrase, steps, lang, pathCodes) {
   const url = new URL(window.location.href.split("?")[0]);
   url.searchParams.set("phrase", phrase);
   url.searchParams.set("steps", steps);
   if (lang !== "en") url.searchParams.set("lang", lang);
+  if (encodingsOnlyMode) url.searchParams.set("xenc", "1");
+  if (pathCodes?.length) url.searchParams.set("path", pathCodes.join(""));
   return url.toString();
 }
 
@@ -1433,7 +1466,8 @@ async function startChain() {
   const startNative = startLang ? startLang.native : "English";
 
   const count = parseInt(stepsEl.value, 10);
-  const steps = pickRandomSteps(count, startCode, encodingsOnlyMode);
+  const steps = resolveForcedSteps(count, startCode, encodingsOnlyMode)
+    || pickRandomSteps(count, startCode, encodingsOnlyMode);
 
   try {
     chainLog = [];
@@ -1456,7 +1490,7 @@ async function startChain() {
         const html = step.encodeHtml ? step.encodeHtml(funInput) : null;
         const speakHandler = step.name === "Morse Code" ? () => playMorse(encoded) : null;
         addStepCard(step.name, step.native, "", encoded, i + 1, html, speakHandler);
-        chainLog.push({ lang: step.name, text: encoded });
+        chainLog.push({ code: step.code, lang: step.name, text: encoded });
         incrementCounter();
       } else {
         try {
@@ -1466,7 +1500,7 @@ async function startChain() {
           throw e;
         }
         addStepCard(step.name, step.native, step.code, current, i + 1);
-        chainLog.push({ lang: step.name, text: current });
+        chainLog.push({ code: step.code, lang: step.name, text: current });
         fromCode = step.code;
         incrementCounter();
       }
@@ -1489,7 +1523,7 @@ async function startChain() {
           const html = fun.encodeHtml ? fun.encodeHtml(funInput) : null;
           const speakHandler = fun.name === "Morse Code" ? () => playMorse(encoded) : null;
           addStepCard(fun.name, fun.native, "", encoded, stepIndex, html, speakHandler);
-          chainLog.push({ lang: fun.name, text: encoded });
+          chainLog.push({ code: fun.code, lang: fun.name, text: encoded });
           incrementCounter();
         }
       } else {
@@ -1552,7 +1586,20 @@ if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
 const encodingsOnlyMode = params.get("xenc") === "1";
+const rawPath = (params.get("path") || "").toLowerCase().replace(/[^a-z]/g, "");
+const forcedPathCodes = [];
+for (let i = 0; i + 1 < rawPath.length; i += 2) {
+  forcedPathCodes.push(rawPath.slice(i, i + 2));
+}
+if (forcedPathCodes.length) {
+  const forcedSteps = Math.max(minSteps, Math.min(maxSteps, forcedPathCodes.length));
+  stepsEl.value = forcedSteps;
+  stepsValEl.textContent = forcedSteps;
+}
 updateComboCount();
+if (forcedPathCodes.length && phraseEl.value.trim()) {
+  startChain();
+}
 
 const COUNTER_URL = "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-translations";
 
