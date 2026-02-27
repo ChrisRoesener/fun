@@ -378,6 +378,12 @@
     border-color: var(--primary);
   }
 
+  .combo-count {
+    margin-top: 0.85rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
   .disclaimer {
     text-align: center;
     color: var(--text-muted);
@@ -476,6 +482,8 @@
         <button class="btn" id="emailSaveBtn" style="padding:0.4rem 0.9rem;font-size:0.85rem;">Save</button>
       </div>
     </div>
+
+    <div id="comboCount" class="combo-count"></div>
   </div>
 
   <div id="chain" class="chain"></div>
@@ -886,6 +894,7 @@ const chainEl     = document.getElementById("chain");
 const resultEl    = document.getElementById("result");
 const errorEl     = document.getElementById("error");
 const resetBtn    = document.getElementById("resetBtn");
+const comboCountEl = document.getElementById("comboCount");
 
 LANGUAGES.forEach(lang => {
   const opt = document.createElement("option");
@@ -926,6 +935,48 @@ function stopCarousel() {
   carouselTimer = null;
   carouselIndex = 0;
   carouselItems = [];
+}
+
+function permutationCount(x, n) {
+  if (n < 0) return 0n;
+  if (n === 0) return 1n;
+  if (n > x) return 0n;
+  let out = 1n;
+  for (let i = 0; i < n; i++) out *= BigInt(x - i);
+  return out;
+}
+
+function powerCount(x, n) {
+  if (n < 0) return 0n;
+  let out = 1n;
+  for (let i = 0; i < n; i++) out *= BigInt(x);
+  return out;
+}
+
+function formatBigCount(v) {
+  const s = v.toString();
+  if (s.length <= 3) return s;
+  if (s.length <= 12) return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${s.slice(0, 3)}.${s.slice(3, 6)}e+${s.length - 1}`;
+}
+
+function updateComboCount() {
+  if (!comboCountEl) return;
+  const n = parseInt(stepsEl.value, 10);
+  const xLang = LANGUAGES.length - 1 + (startLangEl.value === "en" ? FUN_ENCODINGS.length : 0);
+  const xEnc = FUN_ENCODINGS.length;
+
+  let count;
+  let model;
+  if (encodingsOnlyMode) {
+    count = powerCount(xEnc, n);
+    model = `${xEnc}^${n}`;
+  } else {
+    count = permutationCount(xLang, n);
+    model = `${xLang}P${n}`;
+  }
+
+  comboCountEl.textContent = `Possible paths: ${formatBigCount(count)} (${model})`;
 }
 
 function collapseChainToCarousel(items) {
@@ -1025,7 +1076,8 @@ function startCarousel(container, items) {
   }, 2200);
 }
 
-stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; });
+stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; updateComboCount(); });
+startLangEl.addEventListener("change", updateComboCount);
 
 goBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
@@ -1500,6 +1552,7 @@ if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
 const encodingsOnlyMode = params.get("xenc") === "1";
+updateComboCount();
 
 const COUNTER_URL = "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-translations";
 
