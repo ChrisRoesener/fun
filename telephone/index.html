@@ -483,7 +483,7 @@
   <div id="error"></div>
 
   <div class="visitor-counter" id="visitorCounter"></div>
-  <p class="credit">Translations powered by <a href="https://mymemory.translated.net/" target="_blank" rel="noopener">MyMemory</a><br>Built with <a href="https://www.cursor.com/" target="_blank" rel="noopener">Cursor</a></p>
+  <p class="credit">Translations powered by <a href="https://mymemory.translated.net/" target="_blank" rel="noopener">MyMemory</a><br>Synonyms powered by <a href="https://www.datamuse.com/api/" target="_blank" rel="noopener">Datamuse</a><br>Built with <a href="https://www.cursor.com/" target="_blank" rel="noopener">Cursor</a></p>
 </div>
 
 <script>
@@ -547,6 +547,7 @@ const NATO_MAP = {
 };
 
 const BRAILLE_MAP = "⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
+const DATAMUSE_API = "https://api.datamuse.com/words";
 
 const FUN_ENCODINGS = [
   {
@@ -613,6 +614,50 @@ const FUN_ENCODINGS = [
         const base = c <= "Z" ? 65 : 97;
         return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
       });
+    }
+  },
+  {
+    name: "School Paper", native: "Thesaurus Mode", isFun: true,
+    encode(text) {
+      return text;
+    },
+    async encodeAsync(text) {
+      const words = [...text.matchAll(/\b[A-Za-z]{4,}\b/g)];
+      if (!words.length) return text;
+
+      const targetCount = Math.max(1, Math.floor(words.length * 0.5));
+      const selected = [...words]
+        .sort((a, b) => (b[0].length - a[0].length) || (Math.random() - 0.5))
+        .slice(0, targetCount);
+
+      const replacements = await Promise.all(selected.map(async (m) => {
+        const original = m[0];
+        const lower = original.toLowerCase();
+        try {
+          const resp = await fetch(`${DATAMUSE_API}?rel_syn=${encodeURIComponent(lower)}&max=15`);
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          const options = data
+            .map(d => d.word)
+            .filter(w => /^[A-Za-z][A-Za-z'-]*$/.test(w))
+            .filter(w => w.toLowerCase() !== lower);
+          if (!options.length) return null;
+          let picked = options[Math.floor(Math.random() * options.length)];
+          if (original.toUpperCase() === original) picked = picked.toUpperCase();
+          else if (original[0] === original[0].toUpperCase() && original.slice(1) === original.slice(1).toLowerCase()) {
+            picked = picked[0].toUpperCase() + picked.slice(1).toLowerCase();
+          }
+          return { index: m.index, length: original.length, replacement: picked };
+        } catch {
+          return null;
+        }
+      }));
+
+      let out = text;
+      for (const r of replacements.filter(Boolean).sort((a, b) => b.index - a.index)) {
+        out = out.slice(0, r.index) + r.replacement + out.slice(r.index + r.length);
+      }
+      return out;
     }
   },
   {
@@ -1001,8 +1046,26 @@ resetBtn.addEventListener("click", () => {
   phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-function pickRandomSteps(count, excludeCode) {
+function pickRandomSteps(count, excludeCode, encodingsOnlyMode) {
   const steps = [];
+
+  if (encodingsOnlyMode) {
+    const schoolPaper = FUN_ENCODINGS.find(e => e.name === "School Paper");
+    const basePool = [...FUN_ENCODINGS];
+    if (schoolPaper && count > 0) {
+      steps.push(schoolPaper);
+      const idx = basePool.findIndex(e => e.name === "School Paper");
+      if (idx >= 0) basePool.splice(idx, 1);
+    }
+
+    let pool = [...basePool];
+    while (steps.length < count) {
+      if (!pool.length) pool = [...basePool];
+      const idx = Math.floor(Math.random() * pool.length);
+      steps.push(pool.splice(idx, 1)[0]);
+    }
+    return steps.sort(() => Math.random() - 0.5);
+  }
 
   if (excludeCode === "en") {
     const minFun = Math.min(2, count, FUN_ENCODINGS.length);
@@ -1045,6 +1108,11 @@ async function translate(text, from, to, signal) {
 
 function showEmailPrompt() {
   if (!apiEmail) emailRow.style.display = "";
+}
+
+async function encodeFunStep(step, text) {
+  if (typeof step.encodeAsync === "function") return step.encodeAsync(text);
+  return step.encode(text);
 }
 
 let voicesReady = false;
@@ -1313,7 +1381,7 @@ async function startChain() {
   const startNative = startLang ? startLang.native : "English";
 
   const count = parseInt(stepsEl.value, 10);
-  const steps = pickRandomSteps(count, startCode);
+  const steps = pickRandomSteps(count, startCode, encodingsOnlyMode);
 
   try {
     chainLog = [];
@@ -1329,8 +1397,11 @@ async function startChain() {
       await delay(350, abortCtrl.signal);
 
       if (step.isFun) {
-        const encoded = step.encode(current);
-        const html = step.encodeHtml ? step.encodeHtml(current) : null;
+        const isSchoolPaper = step.name === "School Paper";
+        const funInput = isSchoolPaper ? current : original;
+        const encoded = await encodeFunStep(step, funInput);
+        if (isSchoolPaper) current = encoded;
+        const html = step.encodeHtml ? step.encodeHtml(funInput) : null;
         const speakHandler = step.name === "Morse Code" ? () => playMorse(encoded) : null;
         addStepCard(step.name, step.native, "", encoded, i + 1, html, speakHandler);
         chainLog.push({ lang: step.name, text: encoded });
@@ -1359,8 +1430,11 @@ async function startChain() {
         for (const fun of unusedFun) {
           await delay(350, abortCtrl.signal);
           stepIndex++;
-          const encoded = fun.encode(current);
-          const html = fun.encodeHtml ? fun.encodeHtml(current) : null;
+          const isSchoolPaper = fun.name === "School Paper";
+          const funInput = isSchoolPaper ? current : original;
+          const encoded = await encodeFunStep(fun, funInput);
+          if (isSchoolPaper) current = encoded;
+          const html = fun.encodeHtml ? fun.encodeHtml(funInput) : null;
           const speakHandler = fun.name === "Morse Code" ? () => playMorse(encoded) : null;
           addStepCard(fun.name, fun.native, "", encoded, stepIndex, html, speakHandler);
           chainLog.push({ lang: fun.name, text: encoded });
@@ -1373,18 +1447,22 @@ async function startChain() {
 
     await delay(350, abortCtrl.signal);
     let finalText;
-    try {
-      finalText = await translate(current, fromCode, startCode, abortCtrl.signal);
-    } catch (e) {
-      if (e instanceof RateLimitError) {
-        if (fromCode === startCode) {
-          finalText = current;
+    if (encodingsOnlyMode) {
+      finalText = current;
+    } else {
+      try {
+        finalText = await translate(current, fromCode, startCode, abortCtrl.signal);
+      } catch (e) {
+        if (e instanceof RateLimitError) {
+          if (fromCode === startCode) {
+            finalText = current;
+          } else {
+            errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Try again in a minute or use fewer steps.</div>`;
+            return;
+          }
         } else {
-          errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Try again in a minute or use fewer steps.</div>`;
-          return;
+          throw e;
         }
-      } else {
-        throw e;
       }
     }
     addStepCard(startName, startNative + " · Final", startCode, finalText, stepIndex + 1);
@@ -1421,6 +1499,7 @@ const initLang = params.get("lang");
 if (initLang && LANGUAGES.some(l => l.code === initLang)) {
   startLangEl.value = initLang;
 }
+const encodingsOnlyMode = params.get("xenc") === "1";
 
 const COUNTER_URL = "https://api.counterapi.dev/v1/ChrisRWorkspace/telephone-translations";
 
