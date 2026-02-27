@@ -928,6 +928,7 @@ let carouselTimer = null;
 let carouselIndex = 0;
 let carouselItems = [];
 let chainCollapsedRefs = null;
+let useForcedPath = false;
 
 function stopCarousel() {
   if (carouselTimer) clearInterval(carouselTimer);
@@ -959,6 +960,18 @@ function formatBigCount(v) {
   return `${s.slice(0, 3)}.${s.slice(3, 6)}e+${s.length - 1}`;
 }
 
+function buildProductModel(x, n, encodingsOnly) {
+  if (n <= 0) return "1";
+  const terms = [];
+  if (encodingsOnly) {
+    for (let i = 0; i < n; i++) terms.push(String(x));
+  } else {
+    for (let i = 0; i < n; i++) terms.push(String(x - i));
+  }
+  if (terms.length <= 14) return terms.join("x");
+  return `${terms.slice(0, 6).join("x")}...${terms.slice(-6).join("x")}`;
+}
+
 function updateComboCount() {
   if (!comboCountEl) return;
   const n = parseInt(stepsEl.value, 10);
@@ -969,10 +982,10 @@ function updateComboCount() {
   let model;
   if (encodingsOnlyMode) {
     count = powerCount(xEnc, n);
-    model = `${xEnc}^${n}`;
+    model = buildProductModel(xEnc, n, true);
   } else {
     count = permutationCount(xLang, n);
-    model = `${xLang}P${n}`;
+    model = buildProductModel(xLang, n, false);
   }
 
   comboCountEl.textContent = `Possible paths: ${formatBigCount(count)} (${model})`;
@@ -1080,6 +1093,7 @@ startLangEl.addEventListener("change", updateComboCount);
 
 goBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
+  useForcedPath = false;
   startChain();
 });
 
@@ -1350,6 +1364,8 @@ function showResult(original, final) {
       <div class="result-actions">
         <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
         <button class="copy-btn" id="shareLinkBtn">&#x1f517; Share link</button>
+        <button class="copy-btn" id="saveImageBtn">&#x1f5bc; Save image (SVG)</button>
+        <button class="copy-btn" id="runAgainBtn">&#x21bb; Run again</button>
         ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
       </div>
       <div id="carouselWrap" class="carousel-wrap" style="display:none"></div>
@@ -1374,6 +1390,25 @@ function showResult(original, final) {
       btn.innerHTML = "&#x2705; Link copied!";
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f517; Share link"; }, 2000);
     } catch { /* clipboard not available */ }
+  });
+
+  document.getElementById("saveImageBtn").addEventListener("click", (e) => {
+    try {
+      const svg = buildRunSvg(original, chainLog, final, pct, startLangEl.value, shareUrl);
+      downloadBlob(`telephone-${Date.now()}.svg`, svg, "image/svg+xml;charset=utf-8");
+      const btn = e.currentTarget;
+      btn.classList.add("copied");
+      btn.innerHTML = "&#x2705; Image saved!";
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f5bc; Save image (SVG)"; }, 2000);
+    } catch {
+      /* image generation failed */
+    }
+  });
+
+  document.getElementById("runAgainBtn").addEventListener("click", () => {
+    if (running) return;
+    useForcedPath = false;
+    startChain();
   });
 
   const toggleBtn = document.getElementById("toggleCarouselBtn");
@@ -1407,6 +1442,108 @@ function buildShareUrl(phrase, steps, lang, pathCodes) {
   if (encodingsOnlyMode) url.searchParams.set("xenc", "1");
   if (pathCodes?.length) url.searchParams.set("path", pathCodes.join(""));
   return url.toString();
+}
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function stripHtmlTags(str) {
+  return String(str).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function wrapTextForSvg(text, maxCharsPerLine, maxLines = 6) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return [""];
+  const lines = [];
+  let line = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const next = `${line} ${words[i]}`;
+    if (next.length > maxCharsPerLine) {
+      lines.push(line);
+      line = words[i];
+      if (lines.length >= maxLines - 1) break;
+    } else {
+      line = next;
+    }
+  }
+  if (lines.length < maxLines) lines.push(line);
+  if (lines.length >= maxLines && words.join(" ").length > lines.join(" ").length) {
+    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, Math.max(0, maxCharsPerLine - 1))}…`;
+  }
+  return lines;
+}
+
+function textForImage(step) {
+  const heavy = new Set(["Scrabble", "GeoCities", "Maligned Fonts"]);
+  if (heavy.has(step.lang)) return `[${step.lang} visual output shown in app]`;
+  return stripHtmlTags(step.text);
+}
+
+function buildRunSvg(original, steps, finalText, pct, startCode, shareUrl) {
+  const width = 1080;
+  const outerPad = 40;
+  const cardPad = 18;
+  const lineH = 30;
+  const labelH = 24;
+  const rowGap = 14;
+  const titleH = 64;
+  const footerH = 56;
+  const contentW = width - outerPad * 2;
+  const charsPerLine = 64;
+
+  const startLang = LANGUAGES.find(l => l.code === startCode)?.name || startCode.toUpperCase();
+  const rows = [
+    { label: `Start (${startLang})`, text: stripHtmlTags(original) },
+    ...steps.map(s => ({ label: s.lang, text: textForImage(s) })),
+    { label: `Final (${startLang})`, text: stripHtmlTags(finalText) },
+  ].map(r => ({ ...r, lines: wrapTextForSvg(r.text, charsPerLine) }));
+
+  let y = outerPad + titleH;
+  const rowLayouts = rows.map(r => {
+    const h = cardPad * 2 + labelH + r.lines.length * lineH;
+    const top = y;
+    y += h + rowGap;
+    return { ...r, top, h };
+  });
+  const height = y + footerH;
+
+  const parts = [];
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
+  parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="#f4f1ee"/>`);
+  parts.push(`<text x="${outerPad}" y="${outerPad + 20}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#1e1e2f">Translation Telephone</text>`);
+  parts.push(`<text x="${outerPad}" y="${outerPad + 52}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" fill="#6b7280">${pct}% similarity</text>`);
+
+  for (const r of rowLayouts) {
+    parts.push(`<rect x="${outerPad}" y="${r.top}" width="${contentW}" height="${r.h}" rx="14" fill="#ffffff" stroke="#e2e0dc"/>`);
+    parts.push(`<text x="${outerPad + cardPad}" y="${r.top + cardPad + 18}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#4361ee">${escapeXml(r.label)}</text>`);
+    r.lines.forEach((ln, i) => {
+      const ty = r.top + cardPad + labelH + 20 + i * lineH;
+      parts.push(`<text x="${outerPad + cardPad}" y="${ty}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#1e1e2f">${escapeXml(ln)}</text>`);
+    });
+  }
+
+  const shortShare = stripHtmlTags(shareUrl);
+  parts.push(`<text x="${outerPad}" y="${height - 22}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#6b7280">${escapeXml(shortShare)}</text>`);
+  parts.push(`</svg>`);
+  return parts.join("");
+}
+
+function downloadBlob(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function sanitizeInput(raw) {
@@ -1466,7 +1603,7 @@ async function startChain() {
   const startNative = startLang ? startLang.native : "English";
 
   const count = parseInt(stepsEl.value, 10);
-  const steps = resolveForcedSteps(count, startCode, encodingsOnlyMode)
+  const steps = (useForcedPath ? resolveForcedSteps(count, startCode, encodingsOnlyMode) : null)
     || pickRandomSteps(count, startCode, encodingsOnlyMode);
 
   try {
@@ -1591,6 +1728,7 @@ const forcedPathCodes = [];
 for (let i = 0; i + 1 < rawPath.length; i += 2) {
   forcedPathCodes.push(rawPath.slice(i, i + 2));
 }
+useForcedPath = forcedPathCodes.length > 0;
 if (forcedPathCodes.length) {
   const forcedSteps = Math.max(minSteps, Math.min(maxSteps, forcedPathCodes.length));
   stepsEl.value = forcedSteps;
