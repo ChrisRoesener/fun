@@ -1365,6 +1365,7 @@ function showResult(original, final) {
         <button class="copy-btn" id="copyBtn">&#x1f4cb; Copy for texting</button>
         <button class="copy-btn" id="shareLinkBtn">&#x1f517; Share link</button>
         <button class="copy-btn" id="saveImageBtn">&#x1f5bc; Save image (SVG)</button>
+        <button class="copy-btn" id="savePngBtn">&#x1f5bc; Save image (PNG)</button>
         <button class="copy-btn" id="runAgainBtn">&#x21bb; Run again</button>
         ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
       </div>
@@ -1402,6 +1403,19 @@ function showResult(original, final) {
       setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f5bc; Save image (SVG)"; }, 2000);
     } catch {
       /* image generation failed */
+    }
+  });
+
+  document.getElementById("savePngBtn").addEventListener("click", async (e) => {
+    try {
+      const svg = buildRunSvg(original, chainLog, final, pct, startLangEl.value, shareUrl);
+      await downloadPngFromSvg(`telephone-${Date.now()}.png`, svg);
+      const btn = e.currentTarget;
+      btn.classList.add("copied");
+      btn.innerHTML = "&#x2705; PNG saved!";
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = "&#x1f5bc; Save image (PNG)"; }, 2000);
+    } catch {
+      /* png generation failed */
     }
   });
 
@@ -1516,20 +1530,21 @@ function buildRunSvg(original, steps, finalText, pct, startCode, shareUrl) {
   const parts = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
   parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="#f4f1ee"/>`);
-  parts.push(`<text x="${outerPad}" y="${outerPad + 20}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#1e1e2f">Translation Telephone</text>`);
-  parts.push(`<text x="${outerPad}" y="${outerPad + 52}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" fill="#6b7280">${pct}% similarity</text>`);
+  parts.push(`<text x="${width / 2}" y="${outerPad + 20}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700" fill="#1e1e2f">Translation Telephone</text>`);
+  parts.push(`<text x="${width / 2}" y="${outerPad + 52}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" fill="#6b7280">${pct}% similarity</text>`);
 
   for (const r of rowLayouts) {
+    const cx = outerPad + contentW / 2;
     parts.push(`<rect x="${outerPad}" y="${r.top}" width="${contentW}" height="${r.h}" rx="14" fill="#ffffff" stroke="#e2e0dc"/>`);
-    parts.push(`<text x="${outerPad + cardPad}" y="${r.top + cardPad + 18}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#4361ee">${escapeXml(r.label)}</text>`);
+    parts.push(`<text x="${cx}" y="${r.top + cardPad + 18}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#4361ee">${escapeXml(r.label)}</text>`);
     r.lines.forEach((ln, i) => {
       const ty = r.top + cardPad + labelH + 20 + i * lineH;
-      parts.push(`<text x="${outerPad + cardPad}" y="${ty}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#1e1e2f">${escapeXml(ln)}</text>`);
+      parts.push(`<text x="${cx}" y="${ty}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="22" fill="#1e1e2f">${escapeXml(ln)}</text>`);
     });
   }
 
   const shortShare = stripHtmlTags(shareUrl);
-  parts.push(`<text x="${outerPad}" y="${height - 22}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#6b7280">${escapeXml(shortShare)}</text>`);
+  parts.push(`<text x="${width / 2}" y="${height - 22}" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#6b7280">${escapeXml(shortShare)}</text>`);
   parts.push(`</svg>`);
   return parts.join("");
 }
@@ -1544,6 +1559,37 @@ function downloadBlob(filename, content, mimeType) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+async function downloadPngFromSvg(filename, svgText) {
+  const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = svgUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+
+    const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    if (!pngBlob) throw new Error("PNG conversion failed");
+    const url = URL.createObjectURL(pngBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
 }
 
 function sanitizeInput(raw) {
