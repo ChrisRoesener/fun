@@ -173,6 +173,54 @@
   }
   .btn-reset:hover { background: var(--bg); color: var(--text); border-color: var(--text-muted); }
 
+  .start-split {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+  }
+
+  #goBtn {
+    border-radius: 8px 0 0 8px;
+  }
+
+  #goBtnMenuToggle {
+    border-radius: 0 8px 8px 0;
+    padding: 0.65rem 0.75rem;
+    min-width: 2.4rem;
+    border-left: 1px solid rgba(255,255,255,0.35);
+  }
+
+  .start-split-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.4rem);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 0.35rem;
+    z-index: 15;
+    display: none;
+    min-width: 10.5rem;
+  }
+
+  .start-split-menu.open {
+    display: block;
+  }
+
+  .start-split-item {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+    color: var(--text);
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+  }
+
+  .start-split-item:hover {
+    background: var(--bg);
+  }
+
   /* Chain */
   .chain { display: flex; flex-direction: column; gap: 0; }
 
@@ -446,6 +494,10 @@
     h1 { font-size: 1.5rem; }
     .controls { flex-direction: column; align-items: stretch; }
     .btn { justify-content: center; }
+    .start-split { width: 100%; }
+    .start-split .btn { flex: 1; }
+    .start-split-toggle { flex: 0 0 auto; }
+    .start-split-menu { left: 0; right: auto; min-width: 100%; }
   }
 </style>
 </head>
@@ -469,9 +521,15 @@
         <input type="range" id="steps" min="2" max="25" value="8">
         <span class="slider-val" id="stepsVal">8</span>
       </div>
-      <button class="btn" id="goBtn">
-        <span id="goBtnText">Start</span>
-      </button>
+      <div class="start-split" id="startSplit">
+        <button class="btn" id="goBtn">
+          <span id="goBtnText">Start</span>
+        </button>
+        <button class="btn start-split-toggle" id="goBtnMenuToggle" aria-label="More start options" title="More start options">&#x25be;</button>
+        <div class="start-split-menu" id="goBtnMenu">
+          <button class="btn start-split-item" id="goTurboBtn">&#x26a1; Turbo mode</button>
+        </div>
+      </div>
       <button class="btn btn-reset" id="resetBtn" style="display:none">Reset</button>
     </div>
 
@@ -914,6 +972,10 @@ const stepsEl     = document.getElementById("steps");
 const stepsValEl  = document.getElementById("stepsVal");
 const goBtn       = document.getElementById("goBtn");
 const goBtnText   = document.getElementById("goBtnText");
+const goBtnMenuToggle = document.getElementById("goBtnMenuToggle");
+const goTurboBtn = document.getElementById("goTurboBtn");
+const goBtnMenu = document.getElementById("goBtnMenu");
+const startSplit = document.getElementById("startSplit");
 const chainEl     = document.getElementById("chain");
 const resultEl    = document.getElementById("result");
 const errorEl     = document.getElementById("error");
@@ -1120,8 +1182,27 @@ startLangEl.addEventListener("change", updateComboCount);
 
 goBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
+  goBtnMenu.classList.remove("open");
   useForcedPath = false;
-  startChain();
+  startChain({ turbo: false });
+});
+
+goBtnMenuToggle.addEventListener("click", () => {
+  if (running) return;
+  goBtnMenu.classList.toggle("open");
+});
+
+goTurboBtn.addEventListener("click", () => {
+  if (running) return;
+  goBtnMenu.classList.remove("open");
+  useForcedPath = false;
+  startChain({ turbo: true });
+});
+
+document.addEventListener("click", (e) => {
+  if (!startSplit.contains(e.target)) {
+    goBtnMenu.classList.remove("open");
+  }
 });
 
 resetBtn.addEventListener("click", () => {
@@ -1631,12 +1712,20 @@ function toBold(str) {
 }
 
 // --- Run control ---
-function setRunning(state) {
+function setRunning(state, turbo) {
   running = state;
   phraseEl.disabled = state;
   stepsEl.disabled = state;
   startLangEl.disabled = state;
-  goBtnText.textContent = state ? "Stop" : "Start";
+  goBtn.disabled = false;
+  goBtnMenuToggle.disabled = state;
+  goTurboBtn.disabled = state;
+  if (state) {
+    goBtnText.textContent = turbo ? "Stop (Turbo)" : "Stop";
+    goBtnMenu.classList.remove("open");
+  } else {
+    goBtnText.textContent = "Start";
+  }
 }
 
 function delay(ms, signal) {
@@ -1646,7 +1735,7 @@ function delay(ms, signal) {
   });
 }
 
-async function startChain() {
+async function startChain({ turbo = false } = {}) {
   const original = phraseEl.value.trim();
   if (!original) { phraseEl.focus(); return; }
 
@@ -1657,7 +1746,8 @@ async function startChain() {
   errorEl.innerHTML = "";
 
   abortCtrl = new AbortController();
-  setRunning(true);
+  const stepDelayMs = turbo ? 0 : 350;
+  setRunning(true, turbo);
   resetBtn.style.display = "";
 
   await waitForVoices();
@@ -1682,7 +1772,7 @@ async function startChain() {
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      await delay(350, abortCtrl.signal);
+      await delay(stepDelayMs, abortCtrl.signal);
 
       if (step.isFun) {
         const { encoded, newCurrent, html, speakHandler } = await processFunStep(step, current, original);
@@ -1712,7 +1802,7 @@ async function startChain() {
       if (startCode === "en" && unusedFun.length) {
         errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Filling in with some fun encodings instead.</div>`;
         for (const fun of unusedFun) {
-          await delay(350, abortCtrl.signal);
+          await delay(stepDelayMs, abortCtrl.signal);
           stepIndex++;
           const { encoded, newCurrent, html, speakHandler } = await processFunStep(fun, current, original);
           current = newCurrent;
@@ -1725,7 +1815,7 @@ async function startChain() {
       }
     }
 
-    await delay(350, abortCtrl.signal);
+    await delay(stepDelayMs, abortCtrl.signal);
     let finalText;
     if (encodingsOnlyMode) {
       finalText = current;
@@ -1756,7 +1846,7 @@ async function startChain() {
       errorEl.innerHTML = `<div class="error-msg">Something went wrong: ${escapeHtml(err.message)}</div>`;
     }
   } finally {
-    setRunning(false);
+    setRunning(false, false);
   }
 }
 
