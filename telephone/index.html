@@ -1044,15 +1044,15 @@ const TURBO_KEY = "tt_turbo_mode";
 const systemThemeMql = window.matchMedia("(prefers-color-scheme: dark)");
 const PHRASE_SOURCES = [
   {
-    label: "Programming Quotes API",
-    citeUrl: "https://programming-quotesapi.vercel.app/docs",
+    label: "Official Joke API",
+    citeUrl: "https://official-joke-api.appspot.com/jokes/random",
     fetchPhrase: async () => {
-      const resp = await fetch("https://programming-quotesapi.vercel.app/api/random");
+      const resp = await fetch("https://official-joke-api.appspot.com/jokes/random");
       if (!resp.ok) throw new Error(`API returned ${resp.status}`);
       const data = await resp.json();
-      const quote = data?.quote || data?.en || "";
-      const author = data?.author || "";
-      return author ? `${quote} — ${author}` : quote;
+      const setup = sanitizeInput(data?.setup || "");
+      const punchline = sanitizeInput(data?.punchline || "");
+      return `${setup} ${punchline}`.trim();
     }
   },
   {
