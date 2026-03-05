@@ -547,6 +547,7 @@
     <textarea id="phrase" placeholder="e.g. The quick brown fox jumps over the lazy dog"></textarea>
 
     <div class="controls">
+      <button class="btn btn-reset" id="getPhraseBtn">&#x1f3b2; Get phrase</button>
       <div class="slider-group">
         <label for="steps">Steps:</label>
         <input type="range" id="steps" min="2" max="25" value="8">
@@ -996,6 +997,7 @@ const STEP_BY_CODE = new Map(
 
 // --- DOM refs & init ---
 const phraseEl    = document.getElementById("phrase");
+const getPhraseBtn = document.getElementById("getPhraseBtn");
 const startLangEl = document.getElementById("startLang");
 const stepsEl     = document.getElementById("steps");
 const stepsValEl  = document.getElementById("stepsVal");
@@ -1253,6 +1255,29 @@ goBtn.addEventListener("click", () => {
   goBtnMenu.classList.remove("open");
   useForcedPath = false;
   startChain({ turbo: false });
+});
+
+getPhraseBtn.addEventListener("click", async () => {
+  if (running) return;
+  const originalHtml = getPhraseBtn.innerHTML;
+  getPhraseBtn.disabled = true;
+  getPhraseBtn.innerHTML = "&#x23f3; Loading...";
+  try {
+    const resp = await fetch("https://api.chucknorris.io/jokes/random");
+    if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+    const data = await resp.json();
+    const phrase = sanitizeInput(data?.value || "");
+    if (!phrase) throw new Error("No phrase returned");
+    phraseEl.value = phrase;
+    phraseEl.focus();
+    errorEl.innerHTML = "";
+    flashButtonSuccess(getPhraseBtn, "&#x2705; Loaded!", originalHtml);
+  } catch {
+    errorEl.innerHTML = `<div class="error-msg">Couldn't fetch a phrase right now. Try again.</div>`;
+    getPhraseBtn.innerHTML = originalHtml;
+  } finally {
+    if (!running) getPhraseBtn.disabled = false;
+  }
 });
 
 goBtnMenuToggle.addEventListener("click", () => {
@@ -1841,6 +1866,7 @@ function toBold(str) {
 function setRunning(state, turbo) {
   running = state;
   phraseEl.disabled = state;
+  getPhraseBtn.disabled = state;
   stepsEl.disabled = state;
   startLangEl.disabled = state;
   goBtn.disabled = false;
