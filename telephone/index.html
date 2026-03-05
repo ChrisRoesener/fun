@@ -2011,7 +2011,7 @@ function promptNaughtyOverride(originalText, cleanedText, signal) {
     if (btn) btn.addEventListener("click", onUseOriginal);
 
     signal?.addEventListener("abort", onAbort);
-    timer = setTimeout(() => finish(cleanedText), 1000);
+    timer = setTimeout(() => finish(cleanedText), 5000);
   });
 }
 
