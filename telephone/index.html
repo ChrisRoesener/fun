@@ -212,6 +212,14 @@
   }
   .btn-reset:hover { background: var(--bg); color: var(--text); border-color: var(--text-muted); }
 
+  .theme-icon-btn {
+    padding: 0.45rem 0.6rem;
+    min-width: 2.2rem;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
   .start-split {
     position: relative;
     display: inline-flex;
@@ -579,7 +587,7 @@
         </div>
       </div>
       <button class="btn btn-reset" id="resetBtn" style="display:none">Reset</button>
-      <button class="btn btn-reset" id="themeToggle" title="Toggle dark mode">&#x1f319; Dark mode</button>
+      <button class="btn btn-reset theme-icon-btn" id="themeToggle" title="Use dark mode" aria-label="Use dark mode">&#x1f319;</button>
     </div>
 
     <div id="emailRow" class="email-row" style="display:none">
@@ -1075,7 +1083,10 @@ function getEffectiveTheme(pref) {
 }
 
 function updateThemeToggle(theme) {
-  themeToggleBtn.innerHTML = theme === "dark" ? "&#x2600;&#xfe0f; Light mode" : "&#x1f319; Dark mode";
+  const useLight = theme === "dark";
+  themeToggleBtn.innerHTML = useLight ? "&#x2600;&#xfe0f;" : "&#x1f319;";
+  themeToggleBtn.title = useLight ? "Use light mode" : "Use dark mode";
+  themeToggleBtn.setAttribute("aria-label", useLight ? "Use light mode" : "Use dark mode");
 }
 
 function applyTheme(pref) {
