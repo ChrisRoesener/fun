@@ -1032,6 +1032,7 @@ const resetBtn    = document.getElementById("resetBtn");
 const comboCountEl = document.getElementById("comboCount");
 
 const THEME_KEY = "tt_theme";
+const TURBO_KEY = "tt_turbo_mode";
 const systemThemeMql = window.matchMedia("(prefers-color-scheme: dark)");
 const PHRASE_SOURCES = [
   {
@@ -1083,8 +1084,17 @@ function applyTheme(pref) {
   updateThemeToggle(theme);
 }
 
+function updateTurboUi() {
+  goTurboBtn.innerHTML = turboPref
+    ? "&#x23f1;&#xfe0f; Use normal mode"
+    : "&#x26a1; Use turbo mode";
+  goBtnText.textContent = turboPref ? "Start (Turbo)" : "Start";
+}
+
 let themePref = localStorage.getItem(THEME_KEY) || "system";
 applyTheme(themePref);
+let turboPref = localStorage.getItem(TURBO_KEY) === "1";
+updateTurboUi();
 
 themeToggleBtn.addEventListener("click", () => {
   const currentTheme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
@@ -1308,7 +1318,7 @@ goBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
   goBtnMenu.classList.remove("open");
   useForcedPath = false;
-  startChain({ turbo: false });
+  startChain({ turbo: turboPref });
 });
 
 getPhraseBtn.addEventListener("click", async () => {
@@ -1354,8 +1364,9 @@ goBtnMenuToggle.addEventListener("click", () => {
 goTurboBtn.addEventListener("click", () => {
   if (running) return;
   goBtnMenu.classList.remove("open");
-  useForcedPath = false;
-  startChain({ turbo: true });
+  turboPref = !turboPref;
+  localStorage.setItem(TURBO_KEY, turboPref ? "1" : "0");
+  updateTurboUi();
 });
 
 document.addEventListener("click", (e) => {
@@ -1943,7 +1954,7 @@ function setRunning(state, turbo) {
     goBtnText.textContent = turbo ? "Stop (Turbo)" : "Stop";
     goBtnMenu.classList.remove("open");
   } else {
-    goBtnText.textContent = "Start";
+    updateTurboUi();
   }
 }
 
