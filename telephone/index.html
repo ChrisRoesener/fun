@@ -259,6 +259,11 @@
     animation: fadeUp 0.4s forwards;
   }
 
+  .step.copied {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+  }
+
   @keyframes fadeUp {
     to { opacity: 1; transform: translateY(0); }
   }
@@ -1480,6 +1485,34 @@ function speak(text, langCode) {
   speechSynthesis.speak(utter);
 }
 
+function attachLongPressCopy(el, text) {
+  let timer = null;
+
+  const cancel = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  el.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".speak-btn")) return;
+    cancel();
+    timer = setTimeout(async () => {
+      timer = null;
+      try {
+        await navigator.clipboard.writeText(text);
+        el.classList.add("copied");
+        setTimeout(() => el.classList.remove("copied"), 1200);
+      } catch { /* clipboard not available */ }
+    }, 550);
+  });
+
+  el.addEventListener("pointerup", cancel);
+  el.addEventListener("pointerleave", cancel);
+  el.addEventListener("pointercancel", cancel);
+}
+
 function addStepCard(langName, langNative, langCode, text, index, htmlContent, speakHandler) {
   if (chainEl.children.length > 0) {
     const conn = document.createElement("div");
@@ -1505,6 +1538,9 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent, s
     if (speakHandler) return speakHandler();
     speak(text, langCode);
   });
+
+  attachLongPressCopy(card, text);
+
   chainEl.appendChild(card);
 }
 
