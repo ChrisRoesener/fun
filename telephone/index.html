@@ -137,6 +137,21 @@
     border-color: var(--primary);
   }
 
+  .phrase-source {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .phrase-source a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .phrase-source a:hover {
+    text-decoration: underline;
+  }
+
   .controls {
     display: flex;
     align-items: center;
@@ -545,6 +560,7 @@
       <select id="startLang"></select>
     </div>
     <textarea id="phrase" placeholder="e.g. The quick brown fox jumps over the lazy dog"></textarea>
+    <div id="phraseSource" class="phrase-source" style="display:none"></div>
 
     <div class="controls">
       <button class="btn btn-reset" id="getPhraseBtn">&#x1f3b2; Get phrase</button>
@@ -997,6 +1013,7 @@ const STEP_BY_CODE = new Map(
 
 // --- DOM refs & init ---
 const phraseEl    = document.getElementById("phrase");
+const phraseSourceEl = document.getElementById("phraseSource");
 const getPhraseBtn = document.getElementById("getPhraseBtn");
 const startLangEl = document.getElementById("startLang");
 const stepsEl     = document.getElementById("steps");
@@ -1016,6 +1033,16 @@ const comboCountEl = document.getElementById("comboCount");
 
 const THEME_KEY = "tt_theme";
 const systemThemeMql = window.matchMedia("(prefers-color-scheme: dark)");
+
+function clearPhraseSource() {
+  phraseSourceEl.innerHTML = "";
+  phraseSourceEl.style.display = "none";
+}
+
+function setPhraseSource(label, url) {
+  phraseSourceEl.innerHTML = `Source: <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+  phraseSourceEl.style.display = "";
+}
 
 function getEffectiveTheme(pref) {
   if (pref === "dark" || pref === "light") return pref;
@@ -1249,6 +1276,9 @@ function startCarousel(container, items) {
 
 stepsEl.addEventListener("input", () => { stepsValEl.textContent = stepsEl.value; updateComboCount(); });
 startLangEl.addEventListener("change", updateComboCount);
+phraseEl.addEventListener("input", () => {
+  if (!phraseEl.value.trim()) clearPhraseSource();
+});
 
 goBtn.addEventListener("click", () => {
   if (running) { abortCtrl?.abort(); stopMorsePlayback(); return; }
@@ -1269,6 +1299,7 @@ getPhraseBtn.addEventListener("click", async () => {
     const phrase = sanitizeInput(data?.value || "");
     if (!phrase) throw new Error("No phrase returned");
     phraseEl.value = phrase;
+    setPhraseSource("Chuck Norris API", "https://api.chucknorris.io/jokes/random");
     phraseEl.focus();
     errorEl.innerHTML = "";
     flashButtonSuccess(getPhraseBtn, "&#x2705; Loaded!", originalHtml);
@@ -1308,6 +1339,7 @@ resetBtn.addEventListener("click", () => {
   errorEl.innerHTML = "";
   resetBtn.style.display = "none";
   phraseEl.value = "";
+  clearPhraseSource();
   phraseEl.focus();
   phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
 });
