@@ -1033,6 +1033,30 @@ const comboCountEl = document.getElementById("comboCount");
 
 const THEME_KEY = "tt_theme";
 const systemThemeMql = window.matchMedia("(prefers-color-scheme: dark)");
+const PHRASE_SOURCES = [
+  {
+    label: "Chuck Norris API",
+    citeUrl: "https://api.chucknorris.io/jokes/random",
+    fetchPhrase: async () => {
+      const resp = await fetch("https://api.chucknorris.io/jokes/random");
+      if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+      const data = await resp.json();
+      return data?.value || "";
+    }
+  },
+  {
+    label: "icanhazdadjoke",
+    citeUrl: "https://icanhazdadjoke.com/api#fetch-a-random-dad-joke",
+    fetchPhrase: async () => {
+      const resp = await fetch("https://icanhazdadjoke.com/", {
+        headers: { Accept: "application/json" }
+      });
+      if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+      const data = await resp.json();
+      return data?.joke || "";
+    }
+  }
+];
 
 function clearPhraseSource() {
   phraseSourceEl.innerHTML = "";
@@ -1293,13 +1317,24 @@ getPhraseBtn.addEventListener("click", async () => {
   getPhraseBtn.disabled = true;
   getPhraseBtn.innerHTML = "&#x23f3; Loading...";
   try {
-    const resp = await fetch("https://api.chucknorris.io/jokes/random");
-    if (!resp.ok) throw new Error(`API returned ${resp.status}`);
-    const data = await resp.json();
-    const phrase = sanitizeInput(data?.value || "");
-    if (!phrase) throw new Error("No phrase returned");
+    const shuffled = [...PHRASE_SOURCES].sort(() => Math.random() - 0.5);
+    let pickedSource = null;
+    let phrase = "";
+    for (const source of shuffled) {
+      try {
+        const raw = await source.fetchPhrase();
+        const cleaned = sanitizeInput(raw);
+        if (!cleaned) continue;
+        phrase = cleaned;
+        pickedSource = source;
+        break;
+      } catch {
+        /* try next source */
+      }
+    }
+    if (!phrase || !pickedSource) throw new Error("No phrase returned");
     phraseEl.value = phrase;
-    setPhraseSource("Chuck Norris API", "https://api.chucknorris.io/jokes/random");
+    setPhraseSource(pickedSource.label, pickedSource.citeUrl);
     phraseEl.focus();
     errorEl.innerHTML = "";
     flashButtonSuccess(getPhraseBtn, "&#x2705; Loaded!", originalHtml);
