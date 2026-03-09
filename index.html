@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Routing...</title>
+  <script>
+    (function () {
+      var host = window.location.hostname.toLowerCase();
+      var path = window.location.pathname;
+      var target = null;
+
+      if (host === "telephone.scarazy.com" && path === "/") {
+        target = "/telephone/";
+      } else if (path !== "/README.md") {
+        target = "/README.md";
+      }
+
+      if (target) {
+        if (window.location.search) target += window.location.search;
+        if (window.location.hash) target += window.location.hash;
+        window.location.replace(target);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting... <a href="/README.md">Open README</a></p>
+</body>
+</html>
