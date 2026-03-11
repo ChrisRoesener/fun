@@ -268,6 +268,23 @@
     background: var(--bg);
   }
 
+  .typewriter-screen {
+    display: inline;
+    font-family: "Courier New", "Consolas", monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .typewriter-cursor {
+    display: inline-block;
+    margin-left: 0.08em;
+    animation: typewriterBlink 0.9s step-end infinite;
+    color: var(--text-muted);
+  }
+
+  @keyframes typewriterBlink {
+    50% { opacity: 0; }
+  }
+
   /* Chain */
   .chain { display: flex; flex-direction: column; gap: 0; }
 
@@ -1013,6 +1030,15 @@ const FUN_ENCODINGS = [
       }).join(" ");
     }
   },
+  {
+    code: "xo", name: "Typewriter", native: "Hunt & Peck", isFun: true,
+    encode(text) {
+      return text;
+    },
+    encodeHtml(text) {
+      return `<span class="typewriter-screen" aria-label="${escapeHtml(text)}"><span class="typewriter-text"></span><span class="typewriter-cursor">&#x258d;</span></span>`;
+    }
+  },
 ];
 
 const STEP_BY_CODE = new Map(
@@ -1611,6 +1637,67 @@ function speak(text, langCode) {
   speechSynthesis.speak(utter);
 }
 
+function startTypewriterEffect(card, text) {
+  const textEl = card.querySelector(".typewriter-text");
+  if (!textEl) return;
+
+  const chars = [...String(text)];
+  const letterPositions = [];
+  for (let i = 0; i < chars.length; i++) {
+    if (/[A-Za-z]/.test(chars[i])) letterPositions.push(i);
+  }
+
+  const maxTypos = Math.min(10, Math.max(1, Math.floor(letterPositions.length / 8)));
+  const minTypos = Math.max(1, Math.floor(maxTypos / 2));
+  const typoCount = letterPositions.length
+    ? minTypos + Math.floor(Math.random() * (maxTypos - minTypos + 1))
+    : 0;
+  const typoPool = [...letterPositions];
+  const typoSet = new Set();
+  for (let i = 0; i < typoCount && typoPool.length; i++) {
+    const pick = Math.floor(Math.random() * typoPool.length);
+    typoSet.add(typoPool.splice(pick, 1)[0]);
+  }
+
+  const rand = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+  const randomWrongChar = (correct) => {
+    const alpha = correct >= "a" && correct <= "z" ? "abcdefghijklmnopqrstuvwxyz"
+      : correct >= "A" && correct <= "Z" ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      : "abcdefghijklmnopqrstuvwxyz";
+    let ch = alpha[Math.floor(Math.random() * alpha.length)];
+    if (ch === correct) ch = alpha[(alpha.indexOf(ch) + 1) % alpha.length];
+    return ch;
+  };
+
+  let idx = 0;
+  const step = () => {
+    if (!document.body.contains(card)) return;
+    if (idx >= chars.length) return;
+
+    const ch = chars[idx];
+    if (typoSet.has(idx)) {
+      textEl.textContent += randomWrongChar(ch);
+      setTimeout(() => {
+        if (!document.body.contains(card)) return;
+        textEl.textContent = textEl.textContent.slice(0, -1);
+        setTimeout(() => {
+          if (!document.body.contains(card)) return;
+          textEl.textContent += ch;
+          idx++;
+          setTimeout(step, rand(50, 135));
+        }, rand(85, 170));
+      }, rand(120, 220));
+      return;
+    }
+
+    textEl.textContent += ch;
+    idx++;
+    setTimeout(step, rand(45, 120));
+  };
+
+  step();
+}
+
 function attachLongPressCopy(el, text) {
   let timer = null;
 
@@ -1668,6 +1755,10 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent, s
   attachLongPressCopy(card, text);
 
   chainEl.appendChild(card);
+
+  if (langName === "Typewriter") {
+    startTypewriterEffect(card, text);
+  }
 }
 
 // --- Result UI & image export ---
