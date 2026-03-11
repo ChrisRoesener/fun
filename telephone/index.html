@@ -285,6 +285,24 @@
     50% { opacity: 0; }
   }
 
+  .groggy-text {
+    display: inline-block;
+    animation: groggyFocus 2.8s ease-in-out infinite;
+    transform-origin: center;
+    will-change: filter, transform, opacity;
+    text-shadow:
+      0 0 0.04em rgba(255,255,255,0.25),
+      0 0 0.12em rgba(111,139,255,0.2);
+  }
+
+  @keyframes groggyFocus {
+    0%, 100% { filter: blur(0.02em); transform: translateY(0) scale(1); opacity: 1; }
+    18% { filter: blur(0.08em); transform: translateY(0.01em) scale(0.998); opacity: 0.97; }
+    38% { filter: blur(0.16em); transform: translateY(-0.01em) scale(1.002); opacity: 0.93; }
+    58% { filter: blur(0.05em); transform: translateY(0.005em) scale(1); opacity: 0.98; }
+    78% { filter: blur(0.2em); transform: translateY(0.012em) scale(0.996); opacity: 0.9; }
+  }
+
   /* Chain */
   .chain { display: flex; flex-direction: column; gap: 0; }
 
@@ -1037,6 +1055,15 @@ const FUN_ENCODINGS = [
     },
     encodeHtml(text) {
       return `<span class="typewriter-screen" aria-label="${escapeHtml(text)}"><span class="typewriter-text"></span><span class="typewriter-cursor">&#x258d;</span></span>`;
+    }
+  },
+  {
+    code: "xp", name: "Groggy", native: "Half Awake", isFun: true,
+    encode(text) {
+      return text;
+    },
+    encodeHtml(text) {
+      return `<span class="groggy-text">${escapeHtml(text)}</span>`;
     }
   },
 ];
