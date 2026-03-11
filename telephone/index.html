@@ -2123,6 +2123,24 @@ function renderApiResponse(payload, asJson) {
   document.body.innerHTML = `<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:1rem;font:14px/1.45 ui-monospace,Consolas,monospace;">${escapeHtml(text)}</pre>`;
 }
 
+function buildTeamsResponse({ originalInput, originalUsed, finalText, pct, startCode, steps }) {
+  const startLang = LANGUAGES.find(l => l.code === startCode)?.name || startCode.toUpperCase();
+  const stepLines = steps.map((s, i) => `${i + 1}. ${s.lang}: ${s.text}`).join("\n");
+  return [
+    "Translation Telephone",
+    "",
+    `Start language: ${startLang}`,
+    `Similarity: ${pct}%`,
+    "",
+    `Original input: ${originalInput}`,
+    originalUsed !== originalInput ? `Original used: ${originalUsed}` : null,
+    `Final: ${finalText}`,
+    "",
+    "Steps:",
+    stepLines || "(none)"
+  ].filter(Boolean).join("\n");
+}
+
 async function cleanPhraseWithGawrshdarn(text, signal) {
   try {
     const resp = await fetch("https://api.gawrshdarn.com/api/replace", {
@@ -2178,6 +2196,7 @@ async function startChain({ turbo = false } = {}) {
   if (!typedOriginal) { phraseEl.focus(); return; }
   const apiRun = apiMode;
   const asJson = apiFormat === "json";
+  const asTeams = apiFormat === "teams";
 
   if (!apiRun) {
     expandChainFromCarousel();
@@ -2283,7 +2302,11 @@ async function startChain({ turbo = false } = {}) {
             finalText = current;
           } else {
             if (apiRun) {
-              const payload = asJson ? { ok: false, error: "Rate limited before final translation", fromCode, startCode } : "Rate limited before final translation";
+              const payload = asJson
+                ? { ok: false, error: "Rate limited before final translation", fromCode, startCode }
+                : asTeams
+                  ? "Translation Telephone\n\nError: Rate limited before final translation."
+                  : "Rate limited before final translation";
               renderApiResponse(payload, asJson);
             } else {
               errorEl.innerHTML = `<div class="error-msg">The translation API needs a breather! Try again in a minute or use fewer steps.</div>`;
@@ -2311,7 +2334,16 @@ async function startChain({ turbo = false } = {}) {
             step_count: chainLog.length,
             steps: chainLog
           }
-        : finalText;
+        : asTeams
+          ? buildTeamsResponse({
+              originalInput: typedOriginal,
+              originalUsed: original,
+              finalText,
+              pct,
+              startCode,
+              steps: chainLog
+            })
+          : finalText;
       renderApiResponse(payload, asJson);
     } else {
       showResult(original, finalText);
@@ -2321,7 +2353,11 @@ async function startChain({ turbo = false } = {}) {
       /* user cancelled */
     } else {
       if (apiRun) {
-        const payload = asJson ? { ok: false, error: String(err?.message || err) } : `Error: ${String(err?.message || err)}`;
+        const payload = asJson
+          ? { ok: false, error: String(err?.message || err) }
+          : asTeams
+            ? `Translation Telephone\n\nError: ${String(err?.message || err)}`
+            : `Error: ${String(err?.message || err)}`;
         renderApiResponse(payload, asJson);
       } else {
         errorEl.innerHTML = `<div class="error-msg">Something went wrong: ${escapeHtml(err.message)}</div>`;
