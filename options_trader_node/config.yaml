@@ -1,0 +1,34 @@
+scanner:
+  dteMin: 7
+  dteMax: 30
+  deltaMin: 0.30
+  deltaMax: 0.55
+  minOpenInterest: 100
+  maxSpreadPct: 0.10
+  minProbabilityLong: 0.35
+  maxCandidates: 5
+
+risk:
+  maxPositionPct: 0.03
+  maxPositions: 4
+  hardStopPct: 0.30
+  hardStopFloorPct: 0.10
+  trailActivationPct: 0.15
+  baseTrailPct: 0.20
+  mandatoryExitDte: 2
+  atrMultipleStop: 1.0
+  volatilityScaleMin: 0.75
+  volatilityScaleMax: 1.25
+
+monitor:
+  pollIntervalSec: 60
+
+strategy:
+  shortLookbackDays: 5
+  longLookbackDays: 20
+
+execution:
+  useLiveOrders: false
+
+logging:
+  tradeLogPath: trade_log.csv
