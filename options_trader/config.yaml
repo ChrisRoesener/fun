@@ -1,0 +1,35 @@
+scanner:
+  dte_min: 7
+  dte_max: 30
+  delta_min: 0.30
+  delta_max: 0.55
+  min_open_interest: 100
+  max_spread_pct: 0.10
+  min_probability_long: 0.35
+  max_candidates: 5
+
+risk:
+  max_position_pct: 0.03
+  max_positions: 4
+  hard_stop_pct: 0.30
+  hard_stop_floor_pct: 0.10
+  trail_activation_pct: 0.15
+  base_trail_pct: 0.20
+  mandatory_exit_dte: 2
+  atr_multiple_stop: 1.0
+  volatility_scale_min: 0.75
+  volatility_scale_max: 1.25
+
+monitor:
+  poll_interval_sec: 60
+
+strategy:
+  short_lookback_days: 5
+  long_lookback_days: 20
+
+execution:
+  use_live_orders: false
+  order_price_offset_pct: 0.0
+
+logging:
+  trade_log_path: trade_log.csv
