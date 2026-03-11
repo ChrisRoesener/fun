@@ -2123,9 +2123,17 @@ function renderApiResponse(payload, asJson) {
   document.body.innerHTML = `<pre style="white-space:pre-wrap;word-break:break-word;margin:0;padding:1rem;font:14px/1.45 ui-monospace,Consolas,monospace;">${escapeHtml(text)}</pre>`;
 }
 
-function buildTeamsResponse({ originalInput, originalUsed, finalText, pct, startCode, steps }) {
+function buildTeamsResponse({ originalInput, originalUsed, finalText, pct, startCode, steps, mode }) {
   const startLang = LANGUAGES.find(l => l.code === startCode)?.name || startCode.toUpperCase();
   const stepLines = steps.map((s, i) => `${i + 1}. ${s.lang}: ${s.text}`).join("\n");
+  if (mode === "compact") {
+    return [
+      "Translation Telephone",
+      `Similarity: ${pct}%`,
+      `Final: ${finalText}`,
+      `Start: ${startLang} | Steps: ${steps.length}`
+    ].join("\n");
+  }
   return [
     "Translation Telephone",
     "",
@@ -2341,7 +2349,8 @@ async function startChain({ turbo = false } = {}) {
               finalText,
               pct,
               startCode,
-              steps: chainLog
+              steps: chainLog,
+              mode: teamsMode
             })
           : finalText;
       renderApiResponse(payload, asJson);
@@ -2391,6 +2400,8 @@ if (initLang && LANGUAGES.some(l => l.code === initLang)) {
 const rawFormat = params.get("format");
 const apiMode = !!rawFormat;
 const apiFormat = (rawFormat || "text").toLowerCase();
+const teamsModeRaw = (params.get("teams_mode") || "rich").toLowerCase();
+const teamsMode = teamsModeRaw === "compact" ? "compact" : "rich";
 const encodingsOnlyMode = params.get("xenc") === "1";
 const rawPath = (params.get("path") || "").toLowerCase().replace(/[^a-z]/g, "");
 const forcedPathCodes = [];
