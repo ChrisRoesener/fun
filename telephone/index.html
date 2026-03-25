@@ -1683,24 +1683,28 @@ function startTypewriterEffect(card, text) {
   if (!textEl) return;
 
   const chars = [...String(text)];
-  const letterPositions = [];
-  for (let i = 0; i < chars.length; i++) {
-    if (/[A-Za-z]/.test(chars[i])) letterPositions.push(i);
-  }
-
-  const maxTypos = Math.min(10, Math.max(1, Math.floor(letterPositions.length / 8)));
-  const minTypos = Math.max(1, Math.floor(maxTypos / 2));
-  const typoCount = letterPositions.length
-    ? minTypos + Math.floor(Math.random() * (maxTypos - minTypos + 1))
-    : 0;
-  const typoPool = [...letterPositions];
-  const typoSet = new Set();
-  for (let i = 0; i < typoCount && typoPool.length; i++) {
-    const pick = Math.floor(Math.random() * typoPool.length);
-    typoSet.add(typoPool.splice(pick, 1)[0]);
-  }
-
+  if (!chars.length) return;
   const rand = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+
+  function buildTypoSet() {
+    const letterPositions = [];
+    for (let i = 0; i < chars.length; i++) {
+      if (/[A-Za-z]/.test(chars[i])) letterPositions.push(i);
+    }
+    const maxTypos = Math.min(10, Math.max(1, Math.floor(letterPositions.length / 8)));
+    const minTypos = Math.max(1, Math.floor(maxTypos / 2));
+    const typoCount = letterPositions.length
+      ? minTypos + Math.floor(Math.random() * (maxTypos - minTypos + 1))
+      : 0;
+    const typoPool = [...letterPositions];
+    const typoSet = new Set();
+    for (let i = 0; i < typoCount && typoPool.length; i++) {
+      const pick = Math.floor(Math.random() * typoPool.length);
+      typoSet.add(typoPool.splice(pick, 1)[0]);
+    }
+    return typoSet;
+  }
+
   const randomWrongChar = (correct) => {
     const alpha = correct >= "a" && correct <= "z" ? "abcdefghijklmnopqrstuvwxyz"
       : correct >= "A" && correct <= "Z" ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -1710,33 +1714,57 @@ function startTypewriterEffect(card, text) {
     return ch;
   };
 
-  let idx = 0;
-  const step = () => {
+  function runLoop() {
     if (!document.body.contains(card)) return;
-    if (idx >= chars.length) return;
+    textEl.textContent = "";
+    const typoSet = buildTypoSet();
+    let idx = 0;
 
-    const ch = chars[idx];
-    if (typoSet.has(idx)) {
-      textEl.textContent += randomWrongChar(ch);
-      setTimeout(() => {
-        if (!document.body.contains(card)) return;
-        textEl.textContent = textEl.textContent.slice(0, -1);
+    const stepForward = () => {
+      if (!document.body.contains(card)) return;
+      if (idx >= chars.length) {
         setTimeout(() => {
           if (!document.body.contains(card)) return;
-          textEl.textContent += ch;
-          idx++;
-          setTimeout(step, rand(50, 135));
-        }, rand(85, 170));
-      }, rand(120, 220));
-      return;
-    }
+          const stepBack = () => {
+            if (!document.body.contains(card)) return;
+            const t = textEl.textContent;
+            if (t.length === 0) {
+              setTimeout(runLoop, rand(350, 650));
+              return;
+            }
+            textEl.textContent = t.slice(0, -1);
+            setTimeout(stepBack, rand(28, 75));
+          };
+          stepBack();
+        }, rand(1800, 2600));
+        return;
+      }
 
-    textEl.textContent += ch;
-    idx++;
-    setTimeout(step, rand(45, 120));
-  };
+      const ch = chars[idx];
+      if (typoSet.has(idx)) {
+        textEl.textContent += randomWrongChar(ch);
+        setTimeout(() => {
+          if (!document.body.contains(card)) return;
+          textEl.textContent = textEl.textContent.slice(0, -1);
+          setTimeout(() => {
+            if (!document.body.contains(card)) return;
+            textEl.textContent += ch;
+            idx++;
+            setTimeout(stepForward, rand(50, 135));
+          }, rand(85, 170));
+        }, rand(120, 220));
+        return;
+      }
 
-  step();
+      textEl.textContent += ch;
+      idx++;
+      setTimeout(stepForward, rand(45, 120));
+    };
+
+    stepForward();
+  }
+
+  runLoop();
 }
 
 function attachLongPressCopy(el, text) {
