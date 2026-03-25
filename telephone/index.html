@@ -1066,6 +1066,20 @@ const FUN_ENCODINGS = [
       return `<span class="groggy-text">${escapeHtml(text)}</span>`;
     }
   },
+  {
+    code: "xq", name: "Word Scramble", native: "🔀 Shuffle", isFun: true,
+    encode(text) {
+      return text.replace(/[a-z]+/gi, (word) => {
+        if (word.length <= 1) return word;
+        const arr = [...word];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr.join("");
+      });
+    }
+  },
 ];
 
 const STEP_BY_CODE = new Map(
