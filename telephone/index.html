@@ -114,6 +114,10 @@
     border-color: var(--primary);
   }
 
+  .phrase-label-row #getPhraseBtn {
+    flex-shrink: 0;
+  }
+
   .input-area textarea {
     width: 100%;
     border: 2px solid var(--border);
@@ -458,6 +462,12 @@
     gap: 0.6rem;
     flex-wrap: wrap;
     margin-top: 1rem;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .result-actions .copy-btn {
+    margin-top: 0;
   }
 
   .carousel-wrap {
@@ -587,6 +597,20 @@
     .start-split .btn { flex: 1; }
     .start-split-toggle { flex: 0 0 auto; }
     .start-split-menu { left: 0; right: auto; min-width: 100%; }
+
+    .phrase-label-row {
+      flex-wrap: wrap;
+    }
+    .phrase-label-row select {
+      flex: 1;
+      min-width: 0;
+    }
+    .phrase-label-row #getPhraseBtn {
+      flex: 1 1 100%;
+      width: 100%;
+      justify-content: center;
+      margin-top: 0.25rem;
+    }
   }
 </style>
 </head>
@@ -609,7 +633,7 @@
     <div class="controls">
       <div class="slider-group">
         <label for="steps">Steps:</label>
-        <input type="range" id="steps" min="2" max="25" value="8">
+        <input type="range" id="steps" min="2" max="25" value="10">
         <span class="slider-val" id="stepsVal">8</span>
       </div>
       <div class="start-split" id="startSplit">
@@ -1465,7 +1489,7 @@ document.addEventListener("click", (e) => {
   }
 });
 
-resetBtn.addEventListener("click", () => {
+function resetAppToPhrase() {
   if (running) { abortCtrl?.abort(); }
   stopMorsePlayback();
   expandChainFromCarousel();
@@ -1476,8 +1500,13 @@ resetBtn.addEventListener("click", () => {
   resetBtn.style.display = "none";
   phraseEl.value = "";
   clearPhraseSource();
+  useForcedPath = false;
   phraseEl.focus();
   phraseEl.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+resetBtn.addEventListener("click", () => {
+  resetAppToPhrase();
 });
 
 // --- Chain / step logic ---
@@ -1678,6 +1707,21 @@ function speak(text, langCode) {
   speechSynthesis.speak(utter);
 }
 
+function lockTypewriterCardHeight(card, plainText) {
+  const stepText = card.querySelector(".step-text");
+  if (!stepText) return;
+  const probe = document.createElement("div");
+  probe.className = "typewriter-screen";
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = "visibility:hidden;pointer-events:none;position:absolute;left:0;right:0;top:0;height:auto;white-space:pre-wrap;word-break:break-word;";
+  probe.textContent = plainText;
+  stepText.style.position = "relative";
+  stepText.appendChild(probe);
+  const h = probe.offsetHeight;
+  stepText.removeChild(probe);
+  stepText.style.minHeight = `${Math.max(h, 24)}px`;
+}
+
 function startTypewriterEffect(card, text) {
   const textEl = card.querySelector(".typewriter-text");
   if (!textEl) return;
@@ -1826,7 +1870,10 @@ function addStepCard(langName, langNative, langCode, text, index, htmlContent, s
   chainEl.appendChild(card);
 
   if (langName === "Typewriter") {
-    startTypewriterEffect(card, text);
+    requestAnimationFrame(() => {
+      lockTypewriterCardHeight(card, text);
+      startTypewriterEffect(card, text);
+    });
   }
 }
 
@@ -1874,6 +1921,7 @@ function showResult(original, final) {
         <button class="copy-btn" id="savePngBtn">&#x1f5bc; Save image (PNG)</button>
         ${hasIntermediates ? '<button class="copy-btn" id="toggleCarouselBtn">&#x1f5d2; Collapse to carousel</button>' : ""}
         <button class="copy-btn" id="runAgainBtn">&#x21bb; Run again</button>
+        <button class="copy-btn" id="resultResetBtn">&#x1f504; Reset</button>
       </div>
       <div id="carouselWrap" class="carousel-wrap" style="display:none"></div>
     </div>
@@ -1915,6 +1963,10 @@ function showResult(original, final) {
     if (running) return;
     useForcedPath = false;
     startChain();
+  });
+
+  document.getElementById("resultResetBtn").addEventListener("click", () => {
+    resetAppToPhrase();
   });
 
   const toggleBtn = document.getElementById("toggleCarouselBtn");
